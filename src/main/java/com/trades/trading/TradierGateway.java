@@ -33,6 +33,14 @@ public interface TradierGateway {
         throw new UnsupportedOperationException("Order status lookup is not supported.");
     }
 
+    default JsonNode accountPositions() {
+        throw new UnsupportedOperationException("Account positions are not supported.");
+    }
+
+    default JsonNode cancelOrder(String orderId) {
+        throw new UnsupportedOperationException("Order cancellation is not supported.");
+    }
+
     default java.util.Map<String, List<String>> previewRequest(TradeRequest trade) {
         return java.util.Map.of();
     }

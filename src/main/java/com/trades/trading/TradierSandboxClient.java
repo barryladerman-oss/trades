@@ -353,6 +353,36 @@ public class TradierSandboxClient implements TradierGateway {
     }
 
     @Override
+    public JsonNode accountPositions() {
+        requireOrderCredentials();
+        JsonNode response = restClient.get()
+                .uri("/accounts/{accountId}/positions", properties.accountId())
+                .headers(headers -> headers.setBearerAuth(Objects.requireNonNull(properties.token())))
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(JsonNode.class);
+        if (response == null || response.has("errors")) {
+            throw new TradierRequestException("Tradier did not return the account positions.");
+        }
+        return response;
+    }
+
+    @Override
+    public JsonNode cancelOrder(String orderId) {
+        requireOrderCredentials();
+        JsonNode response = restClient.delete()
+                .uri("/accounts/{accountId}/orders/{orderId}", properties.accountId(), orderId)
+                .headers(headers -> headers.setBearerAuth(Objects.requireNonNull(properties.token())))
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(JsonNode.class);
+        if (response == null || response.has("errors")) {
+            throw new TradierRequestException("Tradier did not cancel the order.");
+        }
+        return response;
+    }
+
+    @Override
     public JsonNode orderStatus(String orderId) {
         requireOrderCredentials();
         JsonNode response = restClient.get()

@@ -29,9 +29,9 @@ public class TradeValidator {
         }
         if (trade.spreadType() == SpreadType.SINGLE_LEG) {
             OpeningAction action = trade.legs().get(0).action();
-            OrderType expected = action == OpeningAction.BUY_TO_OPEN ? OrderType.DEBIT : OrderType.CREDIT;
+            OrderType expected = action.isBuy() ? OrderType.DEBIT : OrderType.CREDIT;
             require(trade.orderType() == expected,
-                    "A single-leg buy-to-open order must be a debit; a sell-to-open order must be a credit.");
+                    "A single-leg buy order must be a debit; a sell order must be a credit.");
         }
         if (trade.legs().stream().anyMatch(leg -> leg.expiration().isBefore(LocalDate.now()))) {
             throw new IllegalArgumentException("Option expirations cannot be in the past.");
@@ -41,6 +41,13 @@ public class TradeValidator {
         require(legs.stream().allMatch(leg -> leg != null
                         && leg.quantity() >= 1 && leg.quantity() <= 1000),
                 "Every option leg quantity must be between 1 and 1000 contracts.");
+        boolean anyClosing = legs.stream().anyMatch(leg -> leg.action().isClosing());
+        if (anyClosing) {
+            // Closing orders unwind an existing position, so its opening structure is not re-validated.
+            require(legs.stream().allMatch(leg -> leg.action().isClosing()),
+                    "An order cannot mix opening and closing legs.");
+            return;
+        }
         switch (trade.spreadType()) {
             case SINGLE_LEG -> require(legs.size() == 1, "A single-leg trade requires exactly one leg.");
             case VERTICAL -> validateVertical(legs);

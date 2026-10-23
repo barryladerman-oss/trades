@@ -176,6 +176,18 @@ class TradeValidatorTests {
                 leg(OptionType.CALL, near, 105, OpeningAction.SELL_TO_OPEN, 1)));
     }
 
+    @Test
+    void acceptsClosingLegsWithoutOpeningStructureAndRejectsMixedOrders() {
+        assertValid(SpreadType.DOUBLE_DIAGONAL,
+                leg(OptionType.PUT, near, 90, OpeningAction.BUY_TO_CLOSE, 1),
+                leg(OptionType.PUT, far, 85, OpeningAction.SELL_TO_CLOSE, 1),
+                leg(OptionType.CALL, near, 110, OpeningAction.BUY_TO_CLOSE, 1),
+                leg(OptionType.CALL, far, 115, OpeningAction.SELL_TO_CLOSE, 1));
+        assertThrows(IllegalArgumentException.class, () -> validate(SpreadType.VERTICAL,
+                leg(OptionType.CALL, near, 100, OpeningAction.BUY_TO_CLOSE, 1),
+                leg(OptionType.CALL, near, 105, OpeningAction.SELL_TO_OPEN, 1)));
+    }
+
     private void assertValid(SpreadType type, OptionLeg... legs) {
         assertDoesNotThrow(() -> validate(type, legs));
     }

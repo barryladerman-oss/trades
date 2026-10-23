@@ -116,7 +116,7 @@ public class TradeQuoteService {
         OrderType validationOrderType = request.orderType();
         if (request.spreadType() == SpreadType.SINGLE_LEG && request.legs() != null
                 && request.legs().size() == 1 && request.legs().getFirst() != null) {
-            validationOrderType = request.legs().getFirst().action() == OpeningAction.BUY_TO_OPEN
+            validationOrderType = request.legs().getFirst().action().isBuy()
                     ? OrderType.DEBIT : OrderType.CREDIT;
         }
         BigDecimal validationPrice = validationOrderType == OrderType.EVEN
@@ -176,7 +176,7 @@ public class TradeQuoteService {
                     : hasAnyGreeks(quote) ? "PARTIAL" : "UNAVAILABLE";
             BigDecimal quantity = BigDecimal.valueOf(leg.quantity());
             BigDecimal quoteQuantity = quantity.divide(BigDecimal.valueOf(contractsPerUnit));
-            boolean longLeg = leg.action() == OpeningAction.BUY_TO_OPEN;
+            boolean longLeg = leg.action().isBuy();
             BigDecimal legBid = longLeg ? quote.bid() : quote.ask().negate();
             BigDecimal legAsk = longLeg ? quote.ask() : quote.bid().negate();
             bid = bid.add(legBid.multiply(quoteQuantity));

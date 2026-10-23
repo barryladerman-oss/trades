@@ -8,5 +8,8 @@ public enum SpreadType {
     CALENDAR,
     DIAGONAL,
     DOUBLE_DIAGONAL,
-    IRON_BUTTERFLY
+    IRON_BUTTERFLY,
+    STRADDLE,
+    STRANGLE,
+    CUSTOM
 }

@@ -17,10 +17,23 @@
     h1 { font-size: 1.35rem; margin: 0 0 .15rem; }
     .page-header p { margin: .2rem 0; }
     .preview-tabs { display: flex; gap: .3rem; margin: .5rem 0 0; }
-    #orders-table button.sort { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: inherit; cursor: pointer; }
-    #orders-table th[aria-sort="ascending"] button::after { content: " ▲"; }
-    #orders-table th[aria-sort="descending"] button::after { content: " ▼"; }
+    #orders-table button.sort, #journal-table button.sort { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: inherit; cursor: pointer; }
+    #orders-table th[aria-sort="ascending"] button::after, #journal-table th[aria-sort="ascending"] button::after { content: " ▲"; }
+    #orders-table th[aria-sort="descending"] button::after, #journal-table th[aria-sort="descending"] button::after { content: " ▼"; }
     #orders-panel .actions label { display: inline-flex; align-items: center; gap: .3rem; margin-right: .6rem; }
+    .main-tabs { display: flex; gap: .3rem; margin: .5rem 0; border-bottom: 2px solid var(--blue-border); }
+    .main-tabs button { padding: .45rem 1rem; border: 1px solid var(--blue-border); border-bottom: 0; border-radius: 6px 6px 0 0; background: #fff; cursor: pointer; }
+    .main-tabs button.active { background: var(--blue-accent); color: #fff; font-weight: 700; }
+    .tab-panel[hidden] { display: none; }
+    #positions-table tr.position-group { cursor: pointer; }
+    #positions-table tr.position-group.selected td { background: #cfe5f7; box-shadow: inset 0 0 0 1px var(--blue-accent); }
+    .tab-panel > h2 { font-size: 1.1rem; margin: .4rem 0; }
+    #positions-table tr.position-group td { font-weight: 700; border-top: 2px solid #888; background: rgba(128, 128, 128, .12); }
+    dialog.data-dialog { width: min(1100px, 94vw); max-height: 85vh; padding: 1rem; }
+    dialog.data-dialog::backdrop { background: rgba(0, 0, 0, .45); }
+    .dialog-header { display: flex; justify-content: space-between; align-items: center; }
+    #journal-table tr.journal-order td { font-weight: 700; border-top: 2px solid #888; background: rgba(128, 128, 128, .12); }
+    #journal-table tr.journal-leg td { color: #555; }
     .preview-tabs button { padding: .3rem .8rem; border: 1px solid var(--blue-border); border-bottom: 0; border-radius: 6px 6px 0 0; background: #fff; cursor: pointer; }
     .preview-tabs button.active { background: var(--blue-soft); font-weight: 700; }
     fieldset, .review { background: var(--blue-surface); border: 1px solid var(--blue-border); border-radius: 8px; padding: .75rem; margin: .7rem 0; }
@@ -100,8 +113,8 @@
     .greek-table-wrap { overflow-x: auto; }
     .position-price-control { max-width: 760px; margin: .75rem 0 1rem; padding: .65rem .8rem; border: 1px solid var(--blue-border); border-radius: 6px; background: var(--blue-soft); }
     .position-price-heading, .position-price-labels { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
-    .position-price-heading output { color: var(--blue-accent-dark); font-size: 1.1rem; font-weight: 700; }
-    #position-price-slider { display: block; width: 100%; height: 2rem; margin: .45rem 0 .1rem; padding: 0; border: 0; accent-color: var(--blue-accent-dark); cursor: pointer; }
+    .position-price-heading output, #close-price-selected { color: var(--blue-accent-dark); font-size: 1.1rem; font-weight: 700; }
+    #position-price-slider, #close-price-slider { display: block; width: 100%; height: 2rem; margin: .45rem 0 .1rem; padding: 0; border: 0; accent-color: var(--blue-accent-dark); cursor: pointer; }
     .position-price-labels { position: relative; height: 1.3rem; font-size: .82rem; }
     .position-price-labels span { position: absolute; left: var(--price-position); transform: translateX(-50%); white-space: nowrap; }
     .position-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: .5rem; margin: .75rem 0; }
@@ -147,16 +160,88 @@
 <body>
   <header class="page-header">
     <div>
-      <h1>Options Order Entry</h1>
+      <h1>Options Trading</h1>
     </div>
-    <button type="button" id="show-orders-button" aria-controls="orders-panel" aria-expanded="false">Show All Orders</button>
   </header>
 
-  <section class="review" id="orders-panel" hidden>
-    <h2>All Orders</h2>
+  <nav class="main-tabs" role="tablist">
+    <button type="button" role="tab" class="active" data-tab="entry">Order Entry</button>
+    <button type="button" role="tab" data-tab="orders">Open Orders</button>
+    <button type="button" role="tab" data-tab="positions">Positions</button>
+    <button type="button" role="tab" data-tab="journal">Trading Journal</button>
+  </nav>
+
+  <section class="tab-panel" id="tab-journal" role="tabpanel" hidden>
+    <h2>Trading Journal</h2>
     <div class="actions">
-      <label>From <input type="date" id="orders-from"></label>
-      <label>To <input type="date" id="orders-to"></label>
+      <button type="button" id="journal-refresh">Sync from Tradier</button>
+    </div>
+    <p id="journal-status" role="status"></p>
+    <table class="greek-table" id="journal-table">
+      <thead>
+        <tr>
+          <th><button type="button" class="sort" data-sort="orderCreatedAt">Created</button></th>
+          <th><button type="button" class="sort" data-sort="tradierOrderId">Order ID</button></th>
+          <th><button type="button" class="sort" data-sort="symbol">Symbol</button></th>
+          <th><button type="button" class="sort" data-sort="spreadType">Spread</button></th>
+          <th><button type="button" class="sort" data-sort="orderStatus">Status</button></th>
+          <th>Leg</th>
+          <th>Side</th>
+          <th>Type</th>
+          <th>Expiration</th>
+          <th>Strike</th>
+          <th>Qty</th>
+          <th>Avg Fill</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <dialog class="data-dialog" id="close-dialog" aria-labelledby="close-title">
+    <div class="dialog-header"><h2 id="close-title">Close Position</h2>
+      <button type="button" class="dialog-close" aria-label="Close">Close</button></div>
+    <p id="close-summary"></p>
+    <table class="greek-table" id="close-legs">
+      <thead><tr><th>Action</th><th>Qty</th><th>Type</th><th>Strike</th><th>Expiration</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="actions">
+      <label>Order type
+        <select id="close-order-type"><option value="CREDIT">Credit</option><option value="DEBIT">Debit</option></select>
+      </label>
+      <label>Net limit price <input type="number" id="close-limit" min="0.01" step="0.01"></label>
+    </div>
+    <div class="position-price-control">
+      <div class="position-price-heading">
+        <strong>Closing Price</strong>
+        <output id="close-price-selected" for="close-price-slider">—</output>
+      </div>
+      <input id="close-price-slider" type="range" min="0" max="0" step="0.01" disabled
+        aria-label="Select a closing limit price between bid and ask">
+      <div class="position-price-labels">
+        <span id="close-price-bid">Bid: —</span>
+        <span id="close-price-mid">Mid: —</span>
+        <span id="close-price-ask">Ask: —</span>
+      </div>
+      <span id="close-price-help" class="muted">The price slider enables after quotes load.</span>
+    </div>
+    <div class="actions">
+      <button type="button" id="close-preview">Preview Close</button>
+      <button type="button" class="confirm" id="close-submit" disabled>Confirm and Submit Close Order</button>
+    </div>
+    <p id="close-status" role="status"></p>
+    <div class="preview-tabs" id="close-tabs" role="tablist" hidden>
+      <button type="button" role="tab" class="active" data-close-tab="response">Response</button>
+      <button type="button" role="tab" data-close-tab="request">Request</button>
+    </div>
+    <pre id="close-response" hidden></pre>
+    <pre id="close-request" hidden></pre>
+  </dialog>
+
+  <section class="tab-panel" id="tab-orders" role="tabpanel" hidden>
+    <h2>Open Orders</h2>
+    <div class="actions">
       <button type="button" id="orders-refresh">Refresh</button>
     </div>
     <p id="orders-status" role="status"></p>
@@ -168,15 +253,35 @@
           <th><button type="button" class="sort" data-sort="spreadType">Spread</button></th>
           <th><button type="button" class="sort" data-sort="orderType">Type</button></th>
           <th><button type="button" class="sort" data-sort="limitPrice">Limit</button></th>
-          <th><button type="button" class="sort" data-sort="status">Status</button></th>
           <th><button type="button" class="sort" data-sort="brokerOrderId">Tradier ID</button></th>
           <th>Legs</th>
+          <th></th>
         </tr>
       </thead>
       <tbody></tbody>
     </table>
   </section>
 
+  <section class="tab-panel" id="tab-positions" role="tabpanel" hidden>
+    <h2>Positions</h2>
+    <div class="actions">
+      <button type="button" id="positions-refresh">Refresh</button>
+    </div>
+    <p id="positions-status" role="status"></p>
+    <section id="position-pl-panel" class="profit-loss">
+      <h3 id="position-pl-title">P/L</h3>
+      <p id="position-pl-status" class="muted" aria-live="polite" style="min-height:1.4em">Select a position to view its P/L.</p>
+      <svg id="position-pl-chart" viewBox="0 0 760 360" role="img" aria-label="Selected position profit and loss"></svg>
+    </section>
+    <table class="greek-table" id="positions-table">
+      <thead>
+        <tr><th>Order</th><th>Created</th><th>Symbol</th><th>Spread</th><th>DTE</th><th>DIT</th><th>Type</th><th>Expiration</th><th>Strike</th><th>Qty</th><th>Cost Basis</th><th></th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <div class="tab-panel" id="tab-entry" role="tabpanel">
   <form id="trade-form">
     <fieldset>
       <legend>Trade</legend>
@@ -315,11 +420,9 @@
     </div>
   </section>
   <p id="status" role="status" aria-live="polite"></p>
+  </div>
 
   <script>
-    const ordersPanel = document.querySelector("#orders-panel");
-    const ordersFrom = document.querySelector("#orders-from");
-    const ordersTo = document.querySelector("#orders-to");
     const ordersStatus = document.querySelector("#orders-status");
     let loadedOrders = [];
     let ordersSort = { key: "submittedAt", direction: -1 };
@@ -327,14 +430,6 @@
     function localDateString(date) {
       const pad = number => String(number).padStart(2, "0");
       return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-    }
-
-    function resetOrdersRange() {
-      const today = new Date();
-      const start = new Date(today);
-      start.setDate(today.getDate() - 6);
-      ordersFrom.value = localDateString(start);
-      ordersTo.value = localDateString(today);
     }
 
     function renderOrders() {
@@ -357,19 +452,35 @@
           `${leg.action.replaceAll("_", " ").toLowerCase()} ${leg.quantity} ${leg.expiration} ${leg.strike} ${leg.optionType}`)
           .join("; ");
         [order.submittedAt.replace("T", " "), order.symbol, order.spreadType.replaceAll("_", " "),
-          order.orderType, Number(order.limitPrice).toFixed(2), order.status,
+          order.orderType, Number(order.limitPrice).toFixed(2),
           order.brokerOrderId ?? "", legs].forEach(value =>
           tr.append(Object.assign(document.createElement("td"), { textContent: value })));
+        const cancelButton = Object.assign(document.createElement("button"),
+          { type: "button", textContent: "Cancel Order", className: "cancel" });
+        cancelButton.addEventListener("click", async () => {
+          if (!confirm(`Cancel order ${order.brokerOrderId}?`)) return;
+          cancelButton.disabled = true;
+          try {
+            const response = await fetch(`api/trades/orders/${encodeURIComponent(order.brokerOrderId)}/cancel`,
+              { method: "POST" });
+            if (!response.ok) throw new Error((await response.json()).detail || `Cancel failed (${response.status}).`);
+            await loadOrders();
+            ordersStatus.textContent = `Order ${order.brokerOrderId} cancelled.`;
+          } catch (error) {
+            cancelButton.disabled = false;
+            ordersStatus.textContent = error.message;
+          }
+        });
+        tr.append(document.createElement("td")).append(cancelButton);
         return tr;
       }));
-      ordersStatus.textContent = `${sorted.length} order${sorted.length === 1 ? "" : "s"}.`;
+      ordersStatus.textContent = `${sorted.length} open order${sorted.length === 1 ? "" : "s"}.`;
     }
 
     async function loadOrders() {
       ordersStatus.textContent = "Loading orders…";
       try {
-        const params = new URLSearchParams({ from: ordersFrom.value, to: ordersTo.value });
-        const response = await fetch(`api/trades/orders/all?${params}`);
+        const response = await fetch("api/trades/orders/open");
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || `Request failed (${response.status}).`);
         loadedOrders = data;
@@ -379,23 +490,409 @@
       }
     }
 
-    document.querySelector("#show-orders-button").addEventListener("click", event => {
-      ordersPanel.hidden = !ordersPanel.hidden;
-      event.target.setAttribute("aria-expanded", String(!ordersPanel.hidden));
-      event.target.textContent = ordersPanel.hidden ? "Show All Orders" : "Hide All Orders";
-      if (!ordersPanel.hidden) {
-        if (!ordersFrom.value || !ordersTo.value) resetOrdersRange();
-        loadOrders();
+    const positionsStatus = document.querySelector("#positions-status");
+    const positionPlPanel = document.querySelector("#position-pl-panel");
+    const positionPlChart = document.querySelector("#position-pl-chart");
+    const positionPlStatus = document.querySelector("#position-pl-status");
+    let selectedPositionKey = null;
+    let positionPlRequest = 0;
+
+    const positionKey = group => group.orderId ?? `unmatched:${group.symbol}`;
+
+    async function positionMarks(group) {
+      const legs = group.legs.map(leg => ({
+        optionType: leg.optionType, expiration: leg.expiration, strike: Number(leg.strike),
+        action: Number(leg.quantity) > 0 ? "SELL_TO_CLOSE" : "BUY_TO_CLOSE",
+        quantity: Math.round(Math.abs(Number(leg.quantity)))
+      }));
+      for (const type of ["CREDIT", "DEBIT"]) {
+        try {
+          const quote = await requestJson("api/trades/quote",
+            { symbol: group.symbol, spreadType: group.spreadType, orderType: type, legs });
+          if (Array.isArray(quote.legs) && quote.legs.length === legs.length) return quote.legs;
+        } catch (error) { /* try the other order type */ }
       }
-    });
+      return null;
+    }
+
+    async function showPositionPl(group) {
+      const requestId = ++positionPlRequest;
+      positionPlPanel.hidden = false;
+      positionPlChart.replaceChildren();
+      document.querySelector("#position-pl-title").textContent =
+        `${group.symbol} ${group.spreadType.replaceAll("_", " ")}${group.orderId ? ` — order ${group.orderId}` : ""}`;
+      positionPlStatus.textContent = "Loading quotes…";
+      try {
+        const [spot, marks] = await Promise.all([fetchUnderlyingPrice(group.symbol), positionMarks(group)]);
+        if (requestId !== positionPlRequest) return;
+        renderPositionPl(group, spot, marks);
+      } catch (error) {
+        if (requestId !== positionPlRequest) return;
+        positionPlStatus.textContent = `Unable to calculate P/L: ${error.message}`;
+      }
+    }
+
+    function renderPositionPl(group, spot, marks) {
+      const cost = group.legs.reduce((total, leg) => total + Number(leg.costBasis), 0);
+      const legs = group.legs.map((leg, index) => ({
+        type: leg.optionType,
+        strike: Number(leg.strike),
+        action: Number(leg.quantity) > 0 ? "BUY_TO_OPEN" : "SELL_TO_OPEN",
+        quantity: Math.abs(Number(leg.quantity)),
+        expiration: leg.expiration,
+        quote: marks?.[index]
+      }));
+      const shortExpiration = legs.map(leg => leg.expiration).sort()[0];
+      const needsIv = legs.some(leg => leg.expiration !== shortExpiration);
+      if (needsIv && !legs.every(leg => Number(leg.quote?.impliedVolatility) > 0)) {
+        positionPlChart.replaceChildren();
+        positionPlStatus.textContent = "Implied volatility is unavailable, so the curve cannot be drawn.";
+        return;
+      }
+      positionPlStatus.textContent = "";
+      drawProfitLoss({
+        legs, premium: -cost, symbol: group.symbol, statusText: () => ""
+      }, spot, positionPlChart, positionPlStatus);
+    }
+
+    async function loadPositions() {
+      positionsStatus.textContent = "Loading positions…";
+      try {
+        const response = await fetch("api/trades/positions");
+        const groups = await response.json();
+        if (!response.ok) throw new Error(groups.detail || `Request failed (${response.status}).`);
+        const today = localDateString(new Date());
+        const cell = (tr, value) => tr.append(Object.assign(document.createElement("td"), { textContent: value }));
+        const rows = [];
+        groups.forEach(group => {
+          const header = document.createElement("tr");
+          header.className = "position-group";
+          header.classList.toggle("selected", positionKey(group) === selectedPositionKey);
+          header.addEventListener("click", event => {
+            if (event.target.closest("button")) return;
+            selectedPositionKey = positionKey(group);
+            document.querySelectorAll("#positions-table tr.position-group").forEach(row =>
+              row.classList.toggle("selected", row === header));
+            showPositionPl(group);
+          });
+          const dayNumber = text => Math.floor(Date.UTC(...text.slice(0, 10).split("-").map(
+            (part, index) => index === 1 ? Number(part) - 1 : Number(part))) / 86400000);
+          const todayNumber = dayNumber(today);
+          const dte = dayNumber(group.legs.map(leg => leg.expiration).sort()[0]) - todayNumber;
+          const dit = group.createdAt ? Math.max(0, todayNumber - dayNumber(group.createdAt)) : "";
+          [group.orderId ?? "Unmatched", group.createdAt ?? "", group.symbol,
+            group.spreadType.replaceAll("_", " "), dte, dit,
+            "", "", "", "", ""].forEach(value => cell(header, value));
+          const closable = group.legs.length <= 4 && group.legs.every(leg => leg.expiration >= today
+            && Number.isInteger(Number(leg.quantity)));
+          const actions = document.createElement("td");
+          if (closable) {
+            const closeButton = Object.assign(document.createElement("button"),
+              { type: "button", textContent: "Close…" });
+            // Reuse the close dialog by shaping the position like a filled journal order.
+            closeButton.addEventListener("click", () => openCloseDialog({
+              symbol: group.symbol,
+              spreadType: group.spreadType,
+              legs: group.legs.map(leg => ({
+                optionType: leg.optionType,
+                expiration: leg.expiration,
+                strike: leg.strike,
+                side: Number(leg.quantity) > 0 ? "buy_to_open" : "sell_to_open",
+                legQuantity: Math.abs(Number(leg.quantity)),
+                legAvgFillPrice: Math.abs(Number(leg.costBasis)) / Math.abs(Number(leg.quantity)) / 100
+              }))
+            }));
+            actions.append(closeButton);
+          }
+          header.append(actions);
+          rows.push(header);
+          group.legs.forEach((leg, index) => {
+            const tr = document.createElement("tr");
+            ["", "", "", "", "", "", leg.optionType, leg.expiration, Number(leg.strike).toFixed(2), leg.quantity,
+              Number(leg.costBasis).toFixed(2), ""].forEach(value => cell(tr, value));
+            rows.push(tr);
+          });
+        });
+        document.querySelector("#positions-table tbody").replaceChildren(...rows);
+        positionsStatus.textContent = `${groups.length} position group${groups.length === 1 ? "" : "s"}.`;
+      } catch (error) {
+        positionsStatus.textContent = error.message;
+      }
+    }
+
     document.querySelector("#orders-refresh").addEventListener("click", loadOrders);
-    ordersFrom.addEventListener("change", loadOrders);
-    ordersTo.addEventListener("change", loadOrders);
+    document.querySelector("#positions-refresh").addEventListener("click", loadPositions);
+
+    const tabLoaders = { orders: loadOrders, positions: loadPositions, journal: () => loadJournal(false) };
+    function showTab(name) {
+      document.querySelectorAll(".main-tabs button").forEach(button =>
+        button.classList.toggle("active", button.dataset.tab === name));
+      document.querySelectorAll(".tab-panel").forEach(panel => { panel.hidden = panel.id !== `tab-${name}`; });
+      tabLoaders[name]?.();
+    }
+    document.querySelectorAll(".main-tabs button").forEach(button =>
+      button.addEventListener("click", () => showTab(button.dataset.tab)));
     document.querySelectorAll("#orders-table button.sort").forEach(button =>
       button.addEventListener("click", () => {
         const key = button.dataset.sort;
         ordersSort = { key, direction: ordersSort.key === key ? -ordersSort.direction : 1 };
         renderOrders();
+      }));
+
+    const journalStatus = document.querySelector("#journal-status");
+    let journalRows = [];
+    let journalSort = { key: "orderCreatedAt", direction: -1 };
+
+    function renderJournal() {
+      const { key, direction } = journalSort;
+      const orders = new Map();
+      journalRows.forEach(row => {
+        if (!orders.has(row.tradierOrderId)) orders.set(row.tradierOrderId, { ...row, legs: [] });
+        orders.get(row.tradierOrderId).legs.push(row);
+      });
+      const sorted = [...orders.values()].sort((left, right) => {
+        const a = left[key] ?? "";
+        const b = right[key] ?? "";
+        const result = typeof a === "number" && typeof b === "number"
+          ? a - b : String(a).localeCompare(String(b));
+        return result * direction || String(left.tradierOrderId).localeCompare(String(right.tradierOrderId)) * direction;
+      });
+      document.querySelectorAll("#journal-table th").forEach(th => {
+        const sortKey = th.querySelector("button.sort")?.dataset.sort;
+        if (sortKey === key) th.setAttribute("aria-sort", direction > 0 ? "ascending" : "descending");
+        else th.removeAttribute("aria-sort");
+      });
+      const number = (value, digits) => value == null ? "" : Number(value).toFixed(digits);
+      const cells = (tr, values) => values.forEach(value =>
+        tr.append(Object.assign(document.createElement("td"), { textContent: value })));
+      const rows = [];
+      sorted.forEach(order => {
+        const header = document.createElement("tr");
+        header.className = "journal-order";
+        cells(header, [order.orderCreatedAt ?? "", order.tradierOrderId, order.symbol,
+          order.spreadType.replaceAll("_", " "), order.orderStatus ?? "",
+          `${order.legs.length} leg${order.legs.length === 1 ? "" : "s"}`, "", "", "", "", "", ""]);
+        rows.push(header);
+        order.legs.sort((a, b) => a.legIndex - b.legIndex).forEach(leg => {
+          const tr = document.createElement("tr");
+          tr.className = "journal-leg";
+          cells(tr, ["", "", "", "", "", leg.legIndex + 1, (leg.side ?? "").replaceAll("_", " "),
+            leg.optionType ?? "", leg.expiration ?? "", number(leg.strike, 2), number(leg.legQuantity, 0),
+            number(leg.legAvgFillPrice, 2)]);
+          rows.push(tr);
+        });
+      });
+      document.querySelector("#journal-table tbody").replaceChildren(...rows);
+      journalStatus.textContent = `${sorted.length} order${sorted.length === 1 ? "" : "s"}, ${journalRows.length} leg${journalRows.length === 1 ? "" : "s"}.`;
+    }
+
+    async function loadJournal(sync) {
+      journalStatus.textContent = sync ? "Syncing from Tradier…" : "Loading journal…";
+      try {
+        if (sync) {
+          const imported = await fetch("api/trades/journal/import", { method: "POST" });
+          if (!imported.ok) throw new Error((await imported.json()).detail || `Sync failed (${imported.status}).`);
+        }
+        const response = await fetch("api/trades/journal");
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || `Request failed (${response.status}).`);
+        journalRows = data;
+        renderJournal();
+      } catch (error) {
+        journalStatus.textContent = error.message;
+      }
+    }
+
+    const closeDialog = document.querySelector("#close-dialog");
+    const closeStatus = document.querySelector("#close-status");
+    const closeResponse = document.querySelector("#close-response");
+    const closeRequest = document.querySelector("#close-request");
+    const closeTabs = document.querySelector("#close-tabs");
+
+    function showCloseTab(name) {
+      closeTabs.querySelectorAll("button").forEach(button =>
+        button.classList.toggle("active", button.dataset.closeTab === name));
+      closeResponse.hidden = name !== "response";
+      closeRequest.hidden = name !== "request";
+    }
+    closeTabs.querySelectorAll("button").forEach(button =>
+      button.addEventListener("click", () => showCloseTab(button.dataset.closeTab)));
+    const closeSubmit = document.querySelector("#close-submit");
+    let closePayload = null;
+    let closePreviewId = null;
+
+    function openCloseDialog(order) {
+      const legs = order.legs.map(leg => ({
+        optionType: leg.optionType,
+        expiration: leg.expiration,
+        strike: Number(leg.strike),
+        action: leg.side.startsWith("buy") ? "SELL_TO_CLOSE" : "BUY_TO_CLOSE",
+        quantity: Math.round(Number(leg.legQuantity))
+      }));
+      // Closing a net-debit position is a credit, and the reverse.
+      const net = order.legs.reduce((total, leg) =>
+        total + (leg.side.startsWith("buy") ? 1 : -1) * Number(leg.legAvgFillPrice ?? 0), 0);
+      closePayload = { symbol: order.symbol, spreadType: order.spreadType, legs };
+      closePreviewId = null;
+      closeSubmit.disabled = true;
+      document.querySelector("#close-order-type").value = net > 0 ? "CREDIT" : "DEBIT";
+      document.querySelector("#close-limit").value = Math.abs(net).toFixed(2);
+      document.querySelector("#close-summary").textContent =
+        `${order.symbol} ${order.spreadType.replaceAll("_", " ")} — closes order ${order.tradierOrderId}`;
+      document.querySelector("#close-legs tbody").replaceChildren(...legs.map(leg => {
+        const tr = document.createElement("tr");
+        [leg.action.replaceAll("_", " "), leg.quantity, leg.optionType, leg.strike.toFixed(2), leg.expiration]
+          .forEach(value => tr.append(Object.assign(document.createElement("td"), { textContent: value })));
+        return tr;
+      }));
+      closeStatus.textContent = "";
+      closeResponse.hidden = true;
+      closeRequest.hidden = true;
+      closeTabs.hidden = true;
+      resetClosePrice();
+      closeDialog.showModal();
+      loadCloseQuote(true);
+    }
+
+    const closeSlider = document.querySelector("#close-price-slider");
+    const closeLimit = document.querySelector("#close-limit");
+    const closeOrderTypeSelect = document.querySelector("#close-order-type");
+    let closeQuoteRequest = 0;
+
+    function resetClosePrice() {
+      closeSlider.disabled = true;
+      closeSlider.min = "0";
+      closeSlider.max = "0";
+      document.querySelector("#close-price-selected").textContent = "—";
+      ["bid", "mid", "ask"].forEach(name => {
+        document.querySelector(`#close-price-${name}`).textContent =
+          `${name[0].toUpperCase()}${name.slice(1)}: —`;
+      });
+      document.querySelector("#close-price-help").textContent = "Loading closing quotes…";
+    }
+
+    function setClosePrice(value) {
+      const price = Number(value);
+      if (!Number.isFinite(price)) return;
+      closeLimit.value = price.toFixed(2);
+      document.querySelector("#close-price-selected").textContent = `$${price.toFixed(2)}`;
+      const min = Number(closeSlider.min);
+      const max = Number(closeSlider.max);
+      if (!closeSlider.disabled) closeSlider.value = String(Math.min(max, Math.max(min, price)));
+      closePreviewId = null;
+      closeSubmit.disabled = true;
+    }
+
+    async function loadCloseQuote(initial, retried) {
+      const requestId = ++closeQuoteRequest;
+      closeSlider.disabled = true;
+      try {
+        const quote = await requestJson("api/trades/quote", {
+          ...closePayload, orderType: closeOrderTypeSelect.value
+        });
+        if (requestId !== closeQuoteRequest) return;
+        const bid = Number(quote.bid);
+        const ask = Number(quote.ask);
+        const mid = (bid + ask) / 2;
+        const spread = ask - bid;
+        const min = Math.max(0, bid - spread / 2);
+        const max = ask + spread / 2;
+        closeSlider.min = String(min);
+        closeSlider.max = String(max);
+        closeSlider.step = "0.01";
+        closeSlider.disabled = false;
+        const range = max - min || 1;
+        [["bid", bid], ["mid", mid], ["ask", ask]].forEach(([name, value]) => {
+          const label = document.querySelector(`#close-price-${name}`);
+          label.textContent = `${name[0].toUpperCase()}${name.slice(1)}: $${value.toFixed(2)}`;
+          label.style.setProperty("--price-position", `${(value - min) / range * 100}%`);
+        });
+        document.querySelector("#close-price-help").textContent =
+          "The range extends 50% of the bid/ask spread beyond each side.";
+        setClosePrice(closeOrderTypeSelect.value === "DEBIT" ? bid : ask);
+      } catch (error) {
+        if (requestId !== closeQuoteRequest) return;
+        if (initial && !retried) {
+          // The fill-based guess at debit/credit can be wrong; try the other side once.
+          closeOrderTypeSelect.value = closeOrderTypeSelect.value === "CREDIT" ? "DEBIT" : "CREDIT";
+          return loadCloseQuote(true, true);
+        }
+        document.querySelector("#close-price-help").textContent = `Quotes unavailable: ${error.message}`;
+      }
+    }
+
+    closeSlider.addEventListener("input", event => setClosePrice(event.target.value));
+    closeLimit.addEventListener("input", () => {
+      document.querySelector("#close-price-selected").textContent =
+        `$${Number(closeLimit.value || 0).toFixed(2)}`;
+      if (!closeSlider.disabled && closeLimit.value !== "") {
+        closeSlider.value = String(Math.min(Number(closeSlider.max),
+          Math.max(Number(closeSlider.min), Number(closeLimit.value))));
+      }
+      closePreviewId = null;
+      closeSubmit.disabled = true;
+    });
+    closeOrderTypeSelect.addEventListener("change", () => {
+      closePreviewId = null;
+      closeSubmit.disabled = true;
+      resetClosePrice();
+      loadCloseQuote(false);
+    });
+
+    function closeOrderPayload() {
+      return {
+        ...closePayload,
+        orderType: document.querySelector("#close-order-type").value,
+        limitPrice: Number(document.querySelector("#close-limit").value)
+      };
+    }
+
+    document.querySelector("#close-preview").addEventListener("click", async () => {
+      closeStatus.textContent = "Requesting Tradier sandbox preview…";
+      closeSubmit.disabled = true;
+      try {
+        const result = await requestJson("api/trades/preview", closeOrderPayload());
+        closePreviewId = result.previewId;
+        closeRequest.textContent =
+          `POST /v1/accounts/{accountId}/orders\n${JSON.stringify(result.brokerRequest, null, 2)}`;
+        closeResponse.textContent = JSON.stringify(result.brokerPreview, null, 2);
+        closeTabs.hidden = false;
+        showCloseTab("response");
+        closeStatus.textContent = "Preview ready. No order has been submitted.";
+        closeSubmit.disabled = false;
+      } catch (error) {
+        closeStatus.textContent = error.message;
+      }
+    });
+
+    closeSubmit.addEventListener("click", async () => {
+      if (!closePreviewId) return;
+      if (!window.confirm("Submit this closing order to the Tradier SANDBOX for paper trading?")) return;
+      const previewId = closePreviewId;
+      closePreviewId = null;
+      closeSubmit.disabled = true;
+      closeStatus.textContent = "Submitting closing order…";
+      try {
+        const result = await requestJson("api/trades/submit",
+          { previewId, environment: "SANDBOX", confirmed: true });
+        closeResponse.textContent = JSON.stringify(result, null, 2);
+        closeTabs.hidden = false;
+        showCloseTab("response");
+        closeStatus.textContent = "Closing order submitted.";
+        loadPositions();
+      } catch (error) {
+        closeStatus.textContent = error.message;
+      }
+    });
+
+    document.querySelectorAll("dialog .dialog-close").forEach(button =>
+      button.addEventListener("click", () => button.closest("dialog").close()));
+    document.querySelector("#journal-refresh").addEventListener("click", () => loadJournal(true));
+    document.querySelectorAll("#journal-table button.sort").forEach(button =>
+      button.addEventListener("click", () => {
+        const key = button.dataset.sort;
+        journalSort = { key, direction: journalSort.key === key ? -journalSort.direction : 1 };
+        renderJournal();
       }));
 
     const form = document.querySelector("#trade-form");
@@ -1748,25 +2245,46 @@
       const limitPrice = Number(document.querySelector("#limit-price").value);
       const quantities = quantitiesForRows(rows);
       const contracts = positionUnits(quantities);
-      const valuationTime = Date.now();
       const expirations = rows.map(row =>
         expirationForAction(row.querySelector('[data-field="action"]').value));
-      const shortExpiration = expirations.slice().sort()[0];
-      const timeSpread = expirations.some(expiration => expiration !== shortExpiration);
-      const shortExpirationTime = new Date(`${shortExpiration}T23:59:59Z`).getTime();
       const legs = rows.map((row, index) => ({
         strike: Number(selectedStrike(row)),
         type: row.querySelector('[data-field="optionType"]').value,
         action: row.querySelector('[data-field="action"]').value,
         quantity: quantities[index],
         expiration: expirations[index],
-        quote: marketQuote?.legs[index],
-        timeToExpiration: Math.max(0, (new Date(
-          `${expirations[index]}T23:59:59Z`
-        ).getTime() - valuationTime) / (365 * 24 * 60 * 60 * 1000))
+        quote: marketQuote?.legs[index]
       }));
       const premium = (order === "CREDIT" ? limitPrice : order === "DEBIT" ? -limitPrice : 0)
         * contracts * 100;
+      drawProfitLoss({
+        legs,
+        premium,
+        symbol: symbolInput.value.trim().toUpperCase(),
+        statusText: (hasTheoreticalInputs, timeSpread, currency) => {
+          const premiumLabel = order === "EVEN" ? "even order" : `${order.toLowerCase()} ${currency.format(limitPrice)}/unit`;
+          const theoreticalNote = hasTheoreticalInputs
+            ? " Theoretical P/L is today's Black-Scholes value of the position (per-leg IV and time remaining, zero interest/dividend rates) against the entered net limit price."
+            : " Theoretical P/L is unavailable until current leg quotes include implied volatility.";
+          return `${timeSpread ? "P/L at short-leg expiration" : "Expiration P/L"} uses ${premiumLabel} across ${contracts} position unit${contracts === 1 ? "" : "s"}; the option multiplier is 100.${theoreticalNote}`;
+        }
+      }, spot, profitLossChart, profitLossStatus);
+      renderedProfitLossKey = key;
+    }
+
+    function drawProfitLoss(model, spot, profitLossChart, profitLossStatus) {
+      const { premium } = model;
+      const valuationTime = Date.now();
+      const expirations = model.legs.map(leg => leg.expiration);
+      const shortExpiration = expirations.slice().sort()[0];
+      const timeSpread = expirations.some(expiration => expiration !== shortExpiration);
+      const shortExpirationTime = new Date(`${shortExpiration}T23:59:59Z`).getTime();
+      const legs = model.legs.map(leg => ({
+        ...leg,
+        timeToExpiration: Math.max(0, (new Date(
+          `${leg.expiration}T23:59:59Z`
+        ).getTime() - valuationTime) / (365 * 24 * 60 * 60 * 1000))
+      }));
       const payoff = underlying => premium + legs.reduce((total, leg) => {
         const intrinsic = leg.type === "CALL"
           ? Math.max(underlying - leg.strike, 0)
@@ -1912,7 +2430,7 @@
 
       profitLossChart.replaceChildren();
       profitLossChart.setAttribute("aria-label",
-        `Position ${timeSpread ? "short-expiration" : "expiration"} and theoretical Black-Scholes profit or loss for ${symbolInput.value.trim().toUpperCase()}.`);
+        `Position ${timeSpread ? "short-expiration" : "expiration"} and theoretical Black-Scholes profit or loss for ${model.symbol}.`);
       profitLossChart.append(
         svgNode("desc", {}, `${timeSpread ? "Short-expiration" : "Expiration"} profit or loss uses the entered net limit price${timeSpread ? " and Black-Scholes value for farther-dated legs at the short expiration" : ""}. The theoretical line uses Black-Scholes, each leg's implied volatility and remaining time, zero interest and dividend rates, and current leg midpoint marks.`)
       );
@@ -2092,13 +2610,7 @@
         hoverLabel.setAttribute("visibility", "hidden");
         hoverTooltip.setAttribute("visibility", "hidden");
       };
-      const premiumLabel = order === "EVEN" ? "even order" : `${order.toLowerCase()} ${currency.format(limitPrice)}/unit`;
-      const theoreticalNote = hasTheoreticalInputs
-        ? " Theoretical P/L is today's Black-Scholes value of the position (per-leg IV and time remaining, zero interest/dividend rates) against the entered net limit price."
-        : " Theoretical P/L is unavailable until current leg quotes include implied volatility.";
-      profitLossStatus.textContent =
-        `${timeSpread ? "P/L at short-leg expiration" : "Expiration P/L"} uses ${premiumLabel} across ${contracts} position unit${contracts === 1 ? "" : "s"}; the option multiplier is 100.${theoreticalNote}`;
-      renderedProfitLossKey = key;
+      profitLossStatus.textContent = model.statusText(hasTheoreticalInputs, timeSpread, currency);
     }
 
     function normalCumulativeProbability(value) {

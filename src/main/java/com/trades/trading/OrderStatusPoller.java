@@ -52,6 +52,14 @@ public class OrderStatusPoller {
         mapper.updateStatus(order.orderPk(), status, tradierStatus);
     }
 
+    public void cancel(String tradierOrderId) {
+        Integer orderPk = mapper.findOrderPkByTradierId(tradierOrderId);
+        gateway.cancelOrder(tradierOrderId);
+        if (orderPk != null) {
+            mapper.updateStatus(orderPk, "CANCELLED", "canceled");
+        }
+    }
+
     public static String mapStatus(String tradierStatus) {
         return switch (tradierStatus.toLowerCase(Locale.ROOT)) {
             case "filled" -> "FILLED";
