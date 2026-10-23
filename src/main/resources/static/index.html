@@ -1,0 +1,2786 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Options trade entry</title>
+  <style>
+    :root {
+      color-scheme: light; font: 14px/1.4 system-ui, sans-serif;
+      color: #20364a; background: #edf5fb;
+      --blue-ink: #20364a; --blue-muted: #5b7185; --blue-border: #c8dced;
+      --blue-surface: #fff; --blue-soft: #f6fbff; --blue-pastel: #e4f1fb;
+      --blue-accent: #4f8fca; --blue-accent-dark: #3b78ad;
+    }
+    body { max-width: 980px; margin: .5rem auto; padding: 0 1rem; }
+    .page-header { padding-right: 225px; }
+    h1 { font-size: 1.35rem; margin: 0 0 .15rem; }
+    .page-header p { margin: .2rem 0; }
+    fieldset, .review { background: var(--blue-surface); border: 1px solid var(--blue-border); border-radius: 8px; padding: .75rem; margin: .7rem 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .9rem; }
+    .trade-fields { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); max-width: 48rem; }
+    .price-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 28rem; }
+    label { display: grid; gap: .25rem; font-weight: 600; }
+    input, select, button { font: inherit; padding: .4rem .5rem; border: 1px solid #b7cadd; border-radius: 5px; }
+    fieldset { min-width: 0; }
+    legend { font-weight: 700; padding: 0 .35rem; }
+    .legs-table { width: 100%; border-collapse: collapse; }
+    #legs { overflow-x: auto; }
+    .legs-table th, .legs-table td {
+      padding: .2rem .3rem; border-bottom: 1px solid #dbe8f2; text-align: left;
+    }
+    .legs-table tr.short-leg { background: #fff0f0; }
+    .legs-table tr.long-leg { background: #edf8f0; }
+    .greek-table tr.short-leg { background: #fff0f0; }
+    .greek-table tr.long-leg { background: #edf8f0; }
+    .legs-table th { font-size: .78rem; white-space: nowrap; }
+    .legs-table input, .legs-table select {
+      box-sizing: border-box; width: 100%; min-width: 0; height: 1.8rem; padding: .18rem .28rem;
+    }
+    .legs-table .choice-toggle-group { display: flex; gap: .15rem; }
+    .legs-table .choice-toggle {
+      box-sizing: border-box; flex: 1; min-width: 0; height: 1.8rem;
+      padding: .18rem .22rem; border: 1px solid var(--blue-border);
+      border-radius: 4px; background: #fff; color: var(--blue-ink);
+      font-size: .75rem; cursor: pointer;
+    }
+    .legs-table .choice-toggle[aria-pressed="true"] {
+      border-color: var(--blue-accent); background: var(--blue-soft); font-weight: 700;
+    }
+    .legs-table .leg-value { display: inline-block; min-width: 3rem; }
+    .grid > label > input, .grid > label > select, .symbol-picker input {
+      box-sizing: border-box;
+      width: 100%;
+      min-width: 0;
+    }
+    #position-controls [data-position-expiration] {
+      box-sizing: border-box; width: 34ch; min-width: 24ch; max-width: 100%; padding-right: 2.5rem;
+      text-overflow: clip;
+    }
+    #position-controls { grid-template-columns: repeat(auto-fit, minmax(22rem, max-content)); }
+    .position-multiplier-controls { display: flex; align-items: center; gap: .4rem; }
+    #position-multiplier { box-sizing: border-box; width: 8ch; }
+    input:focus, select:focus, button:focus-visible, [role=option]:focus {
+      outline: 2px solid var(--blue-accent);
+      outline-offset: 1px;
+    }
+    #trade-form input[name="symbol"].symbol-input-focused {
+      outline: 3px solid var(--blue-accent-dark) !important;
+      outline-offset: 2px;
+      box-shadow: 0 0 0 4px #4f8fca33 !important;
+    }
+    .legs-table [data-field="strike"] { width: 8ch; min-width: 8ch; }
+    .legs-table [data-field="quantity"] { width: 6ch; min-width: 6ch; }
+    .symbol-picker { position: relative; }
+    #selected-symbol-name {
+      position: absolute; z-index: 1; top: 50%; transform: translateY(-50%);
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding-left: .25rem;
+      background: var(--blue-surface); color: var(--blue-muted); font-size: .76rem; font-weight: 400;
+      pointer-events: none;
+    }
+    .symbol-suggestion-panel { position: absolute; z-index: 5; top: 100%; left: 0; right: 0; max-height: 16rem; overflow-y: auto;     background: var(--blue-surface); border: 1px solid var(--blue-border); border-radius: 5px; box-shadow: 0 4px 12px #305c7a22; }
+    .symbol-suggestion-panel[hidden] { display: none; }
+    #symbol-search-status { padding: .4rem .6rem; border-bottom: 1px solid #dbe8f2; }
+    #selected-symbol-name { font-weight: 400; }
+    #symbol-suggestions [role=option] { padding: .5rem .6rem; cursor: pointer; }
+    #symbol-suggestions [role=option]:hover, #symbol-suggestions [role=option]:focus,
+    #symbol-suggestions [role=option][aria-selected="true"] { background: var(--blue-pastel); outline: none; }
+    .quote-results { margin-top: 1rem; }
+    .greek-table { width: 100%; border-collapse: collapse; margin: .75rem 0; }
+    .greek-table th, .greek-table td { padding: .3rem .4rem; border-bottom: 1px solid #dbe8f2; text-align: left; white-space: nowrap; }
+    .greek-table th { font-size: .78rem; }
+    .greek-table .position-total-row { font-weight: 700; background: var(--blue-pastel); border-top: 2px solid var(--blue-border); }
+    .greek-table-wrap { overflow-x: auto; }
+    .position-price-control { max-width: 760px; margin: .75rem 0 1rem; padding: .65rem .8rem; border: 1px solid var(--blue-border); border-radius: 6px; background: var(--blue-soft); }
+    .position-price-heading, .position-price-labels { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+    .position-price-heading output { color: var(--blue-accent-dark); font-size: 1.1rem; font-weight: 700; }
+    #position-price-slider { display: block; width: 100%; height: 2rem; margin: .45rem 0 .1rem; padding: 0; border: 0; accent-color: var(--blue-accent-dark); cursor: pointer; }
+    .position-price-labels { position: relative; height: 1.3rem; font-size: .82rem; }
+    .position-price-labels span { position: absolute; left: var(--price-position); transform: translateX(-50%); white-space: nowrap; }
+    .position-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: .5rem; margin: .75rem 0; }
+    .position-metric { display: grid; gap: .15rem; padding: .55rem .65rem; border: 1px solid var(--blue-border); border-radius: 6px; background: var(--blue-soft); }
+    .position-metric strong { font-size: 1.1rem; }
+    .secondary { background: var(--blue-soft); color: var(--blue-ink); border-color: var(--blue-border); }
+    #underlying-chart-toggle { margin-top: .35rem; }
+    .underlying-quote { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1.75rem;
+      margin: .6rem 0 .4rem; padding: .6rem .9rem; background: var(--blue-soft); border-radius: 6px; }
+    .underlying-quote[hidden] { display: none; }
+    .uq-symbol { font-size: 1.5rem; color: #20364a; }
+    .uq-item { display: inline-flex; flex-direction: column; }
+    .uq-label { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #4a6076; }
+    .uq-value { font-size: 1.7rem; font-weight: 700; color: #14283a; font-variant-numeric: tabular-nums; }
+    .profit-loss { margin-top: 1rem; padding: .75rem; border: 1px solid #d4c8ae; border-radius: 6px; background: #f1e8d2; }
+    .profit-loss svg { display: block; width: 100%; height: auto; background: #f8f2e3; border-radius: 4px; }
+    .underlying-chart { margin: .7rem 0; padding: .75rem; border: 1px solid #d4c8ae; border-radius: 6px; background: #f1e8d2; }
+    .underlying-chart[hidden] { display: none; }
+    .underlying-chart svg { display: block; width: 100%; height: auto; background: #f8f2e3; border-radius: 4px; }
+    .underlying-chart-status:empty { display: none; }
+    .chart-actions { display: flex; align-items: end; gap: .75rem; margin-top: .6rem; }
+    .chart-interval { display: flex; align-items: center; gap: .4rem; }
+    .quote-choice { font-weight: 700; background: var(--blue-pastel); color: var(--blue-ink); border-color: var(--blue-border); }
+    .muted { color: var(--blue-muted); font-size: .82rem; }
+    .actions { display: flex; gap: .75rem; flex-wrap: wrap; margin: 1rem 0; }
+    button { cursor: pointer; font-weight: 700; }
+    button[type=submit], .confirm { color: white; background: var(--blue-accent-dark); border-color: var(--blue-accent-dark); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .cancel { background: #fff; }
+    pre { overflow: auto; padding: .8rem; background: var(--blue-soft); border-radius: 5px; }
+    #status { white-space: pre-wrap; }
+    #status[data-error=true] { color: #a32121; }
+    option[data-atm="true"] {
+      color: #176b36; background: #e3f5e8; font-weight: 700;
+    }
+    @media (max-width: 720px) {
+      .trade-fields { grid-template-columns: 1fr; }
+      .position-metrics { grid-template-columns: 1fr; }
+      .page-header { padding: 4.25rem 0 0; }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-header">
+    <div>
+      <h1>Options Order Entry</h1>
+    </div>
+  </header>
+
+  <form id="trade-form">
+    <fieldset>
+      <legend>Trade</legend>
+      <div class="grid trade-fields">
+        <label>Underlying Symbol
+          <div class="symbol-picker">
+            <input name="symbol" required maxlength="10" autofocus
+              pattern="[A-Za-z][A-Za-z0-9.\-]{0,9}" placeholder="SPY" autocomplete="off"
+              role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="symbol-suggestions">
+            <span id="selected-symbol-name" hidden></span>
+            <div id="symbol-suggestion-panel" class="symbol-suggestion-panel" hidden>
+              <div id="symbol-search-status" class="muted" role="status" aria-live="polite"></div>
+              <div id="symbol-suggestions" role="listbox"></div>
+            </div>
+          </div>
+        </label>
+        <label>Spread Structure
+          <select name="spreadType" id="spread-type">
+            <option value="BUTTERFLY">Butterfly</option>
+            <option value="CALENDAR">Calendar</option>
+            <option value="DIAGONAL">Diagonal</option>
+            <option value="DOUBLE_DIAGONAL">Double Diagonal</option>
+            <option value="IRON_BUTTERFLY">Iron Butterfly</option>
+            <option value="IRON_CONDOR">Iron Condor</option>
+            <option value="SINGLE_LEG">Single Leg</option>
+            <option value="BULL_CALL_SPREAD">Bull Call Spread</option>
+            <option value="BEAR_CALL_SPREAD">Bear Call Spread</option>
+            <option value="BULL_PUT_SPREAD" selected>Bull Put Spread</option>
+            <option value="BEAR_PUT_SPREAD">Bear Put Spread</option>
+          </select>
+        </label>
+      </div>
+      <p id="underlying-quote" class="muted underlying-quote" aria-live="polite" hidden></p>
+      <button type="button" id="underlying-chart-toggle" class="secondary"
+        aria-controls="underlying-chart-panel" aria-expanded="false">Show Underlying Chart</button>
+    </fieldset>
+    <section id="underlying-chart-panel" class="underlying-chart" aria-labelledby="underlying-chart-heading" hidden>
+      <h2 id="underlying-chart-heading">Underlying Intraday Chart</h2>
+      <p id="underlying-chart-status" class="muted underlying-chart-status" role="status" aria-live="polite"></p>
+      <svg id="underlying-chart" viewBox="0 0 900 470" role="img" aria-label="Underlying intraday price and estimated volume profile"></svg>
+      <div class="chart-actions">
+        <label class="chart-interval">Candle Interval
+          <select id="underlying-chart-interval">
+            <option value="1">1 minute</option>
+            <option value="5">5 minutes</option>
+            <option value="15" selected>15 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="60">1 hour</option>
+          </select>
+        </label>
+        <button type="button" id="underlying-chart-refresh" class="secondary">Refresh Chart</button>
+      </div>
+    </section>
+    <fieldset>
+      <legend>Option Legs</legend>
+      <div id="position-controls" class="grid"></div>
+      <div id="legs"></div>
+      <section id="profit-loss-panel" class="profit-loss">
+        <h3 id="profit-loss-title">P/L at Expiration</h3>
+        <p id="profit-loss-status" class="muted" aria-live="polite">Select a symbol, expiration, and strikes to view the estimated expiration P/L.</p>
+        <svg id="profit-loss-chart" viewBox="0 0 760 360" role="img" aria-label="Position profit and loss at expiration"></svg>
+      </section>
+      <section id="leg-greeks-panel" class="quote-results" aria-label="Per-leg option metrics">
+        <h3>Per-Leg Metrics</h3>
+        <div class="greek-table-wrap">
+          <table class="greek-table">
+            <thead><tr><th>Option</th><th>Action</th><th>Qty</th><th>Bid</th><th>Ask</th><th>Mid</th><th>Open Interest</th><th>IV Percentile</th><th>Delta</th><th>Theta</th><th>Gamma</th><th>Vega</th></tr></thead>
+            <tbody id="leg-greeks"></tbody>
+          </table>
+        </div>
+      </section>
+    </fieldset>
+    <fieldset>
+      <legend>Order Ticket</legend>
+      <div class="grid price-fields">
+        <label>Order Price Type
+          <select name="orderType" id="order-type">
+            <option value="DEBIT">Limit Debit</option>
+            <option value="CREDIT" selected>Limit Credit</option>
+            <option value="EVEN">Even ($0.00)</option>
+          </select>
+        </label>
+        <label id="price-label">Net Limit Price (per ratio unit)
+          <input name="limitPrice" id="limit-price" type="number" min="0" step="0.01" value="1.00" required>
+        </label>
+      </div>
+      <div id="position-price-control" class="position-price-control">
+        <div class="position-price-heading">
+          <strong>Position Price</strong>
+          <output id="position-price-selected" for="position-price-slider">$1.00</output>
+        </div>
+        <input id="position-price-slider" type="range" min="0" max="0" step="0.01" disabled
+          aria-label="Select a position limit price between bid and ask">
+        <div class="position-price-labels">
+          <span id="position-price-bid">Bid: —</span>
+          <span id="position-price-mid">Mid: —</span>
+          <span id="position-price-ask">Ask: —</span>
+        </div>
+        <span id="position-price-help" class="muted">The price slider enables after position quotes load.</span>
+      </div>
+      <section id="quote-results" class="quote-results" hidden aria-live="polite">
+        <div class="position-metrics" aria-label="Estimated expiration probabilities">
+          <div class="position-metric"><span>Prob Profit</span><strong id="position-profit">—</strong></div>
+          <div class="position-metric"><span>Prob Max Loss</span><strong id="position-max-loss">—</strong></div>
+          <div class="position-metric"><span>Prob Max Gain:</span><strong id="position-max-gain">—</strong></div>
+        </div>
+        <p id="position-metrics-note" class="muted"></p>
+      </section>
+    </fieldset>
+    <fieldset>
+      <legend>Execution Environment</legend>
+      <label>Broker
+        <select id="environment" disabled><option value="SANDBOX" selected>Tradier sandbox (paper trading only)</option></select>
+      </label>
+    </fieldset>
+    <div class="actions"><button type="submit" id="preview-button">Preview Order</button></div>
+  </form>
+
+  <section class="review" id="review" hidden>
+    <h2>Review Sandbox Preview</h2>
+    <p>Confirm the legs, quantities, limit price, and broker preview below before submitting. This sends a paper order to Tradier's sandbox.</p>
+    <pre id="broker-preview"></pre>
+    <div class="actions">
+      <button type="button" class="confirm" id="confirm-button">Confirm and Submit Paper Order</button>
+      <button type="button" class="cancel" id="cancel-button">Cancel Preview</button>
+    </div>
+  </section>
+  <p id="status" role="status" aria-live="polite"></p>
+
+  <script>
+    const form = document.querySelector("#trade-form");
+    const spreadSelect = document.querySelector("#spread-type");
+    const legContainer = document.querySelector("#legs");
+    const review = document.querySelector("#review");
+    const status = document.querySelector("#status");
+    const orderType = document.querySelector("#order-type");
+    const priceLabel = document.querySelector("#price-label");
+    const quoteResults = document.querySelector("#quote-results");
+    let activePreviewId = null;
+    let symbolSearchRequest = 0;
+    let symbolSearchTimer = null;
+    let symbolSearchController = null;
+    let selectedSymbol = "";
+    let pendingSymbolSuggestion = null;
+    let positionMultiplier = 1;
+
+    const legCounts = {
+      SINGLE_LEG: 1, BULL_CALL_SPREAD: 2, BEAR_CALL_SPREAD: 2,
+      BULL_PUT_SPREAD: 2, BEAR_PUT_SPREAD: 2, IRON_CONDOR: 4, BUTTERFLY: 3,
+      CALENDAR: 2, DIAGONAL: 2, DOUBLE_DIAGONAL: 4, IRON_BUTTERFLY: 4
+    };
+    function isVerticalSpread() {
+      return ["BULL_CALL_SPREAD", "BEAR_CALL_SPREAD", "BULL_PUT_SPREAD", "BEAR_PUT_SPREAD"]
+        .includes(spreadSelect.value);
+    }
+
+    function verticalOptionType() {
+      return spreadSelect.value.endsWith("_PUT_SPREAD") ? "PUT" : "CALL";
+    }
+
+    function verticalDebitDefault() {
+      return ["BULL_CALL_SPREAD", "BEAR_PUT_SPREAD"].includes(spreadSelect.value);
+    }
+
+    function legDefinition(index) {
+      if (spreadSelect.value === "SINGLE_LEG") {
+        return { optionType: "CALL", action: "BUY_TO_OPEN", strikeRole: "single" };
+      }
+      if (spreadSelect.value === "IRON_CONDOR") {
+        return [
+          { optionType: "PUT", action: "BUY_TO_OPEN", strikeRole: "put-wing" },
+          { optionType: "PUT", action: "SELL_TO_OPEN", strikeRole: "put-inner" },
+          { optionType: "CALL", action: "SELL_TO_OPEN", strikeRole: "call-inner" },
+          { optionType: "CALL", action: "BUY_TO_OPEN", strikeRole: "call-wing" }
+        ][index];
+      }
+      if (spreadSelect.value === "BUTTERFLY") {
+        return [
+          { optionType: "CALL", action: "BUY_TO_OPEN", strikeRole: "left-wing" },
+          { optionType: "CALL", action: "SELL_TO_OPEN", strikeRole: "center" },
+          { optionType: "CALL", action: "BUY_TO_OPEN", strikeRole: "right-wing" }
+        ][index];
+      }
+      if (isVerticalSpread()) {
+        const longFirst = ["BULL_CALL_SPREAD", "BEAR_PUT_SPREAD"].includes(spreadSelect.value);
+        const isLong = index === 0 ? longFirst : !longFirst;
+        return {
+          optionType: verticalOptionType(),
+          action: isLong ? "BUY_TO_OPEN" : "SELL_TO_OPEN",
+          strikeRole: isLong ? "vertical-long" : "vertical-short"
+        };
+      }
+      if (spreadSelect.value === "CALENDAR") {
+        return [
+          { optionType: "CALL", action: "BUY_TO_OPEN", strikeRole: "calendar-long" },
+          { optionType: "CALL", action: "SELL_TO_OPEN", strikeRole: "calendar-short" }
+        ][index];
+      }
+      if (spreadSelect.value === "DIAGONAL") {
+        return [
+          { optionType: "CALL", action: "SELL_TO_OPEN", strikeRole: "diagonal-short" },
+          { optionType: "CALL", action: "BUY_TO_OPEN", strikeRole: "diagonal-long" }
+        ][index];
+      }
+      if (spreadSelect.value === "DOUBLE_DIAGONAL") {
+        return [
+          { optionType: "PUT", action: "BUY_TO_OPEN", strikeRole: "put-long" },
+          { optionType: "PUT", action: "SELL_TO_OPEN", strikeRole: "put-short" },
+          { optionType: "CALL", action: "BUY_TO_OPEN", strikeRole: "call-long" },
+          { optionType: "CALL", action: "SELL_TO_OPEN", strikeRole: "call-short" }
+        ][index];
+      }
+      if (spreadSelect.value === "IRON_BUTTERFLY") {
+        return [
+          { optionType: "PUT", action: "BUY_TO_OPEN", strikeRole: "put-wing" },
+          { optionType: "PUT", action: "SELL_TO_OPEN", strikeRole: "center" },
+          { optionType: "CALL", action: "SELL_TO_OPEN", strikeRole: "center-mirror" },
+          { optionType: "CALL", action: "BUY_TO_OPEN", strikeRole: "call-wing" }
+        ][index];
+      }
+      return { optionType: "CALL", action: "BUY_TO_OPEN", strikeRole: "" };
+    }
+
+    function isTimeSpread() {
+      return ["CALENDAR", "DIAGONAL", "DOUBLE_DIAGONAL"].includes(spreadSelect.value);
+    }
+
+    function renderPositionControls() {
+      const controls = document.querySelector("#position-controls");
+      const previousSelections = new Map(
+        [...controls.querySelectorAll("[data-position-expiration]")]
+          .map(field => [field.dataset.positionExpiration, field.value])
+      );
+      for (const [role, expiration] of previousSelections) {
+        if (expiration) expirationSelections.set(role, expiration);
+      }
+      if (isTimeSpread()) {
+        if (!expirationSelections.has("SELL_TO_OPEN") && previousSelections.get("POSITION")) {
+          expirationSelections.set("SELL_TO_OPEN", previousSelections.get("POSITION"));
+        }
+        if (!expirationSelections.has("BUY_TO_OPEN") && previousSelections.get("POSITION")) {
+          expirationSelections.set("BUY_TO_OPEN", previousSelections.get("POSITION"));
+        }
+      } else {
+        const previousExpiration = previousSelections.get("POSITION")
+          || previousSelections.get("SELL_TO_OPEN")
+          || previousSelections.get("BUY_TO_OPEN");
+        if (previousExpiration) expirationSelections.set("POSITION", previousExpiration);
+      }
+      const expirationFields = isTimeSpread()
+        ? `
+          <label>Long-leg expiration
+            <select data-position-expiration="BUY_TO_OPEN" required disabled><option value="">Enter symbol first</option></select>
+          </label>
+          <label>Short-leg expiration
+            <select data-position-expiration="SELL_TO_OPEN" required disabled><option value="">Enter symbol first</option></select>
+          </label>`
+        : `
+          <label>Position expiration
+            <select data-position-expiration="POSITION" required disabled><option value="">Enter symbol first</option></select>
+          </label>`;
+      controls.innerHTML = `${expirationFields}
+        <div>
+          <label for="position-multiplier">Quantity Multiplier</label>
+          <div class="position-multiplier-controls">
+            <input id="position-multiplier" type="number" min="1" max="1000" step="1"
+              value="${positionMultiplier}" required
+              aria-label="Multiplier for all leg quantities">
+          </div>
+        </div>`;
+    }
+
+    function expirationForAction(action) {
+      const key = isTimeSpread() ? action : "POSITION";
+      return document.querySelector(`[data-position-expiration="${key}"]`).value;
+    }
+
+    function quantitiesForRows(rows) {
+      return rows.map(row => Number(row.querySelector('[data-field="quantity"]').value));
+    }
+
+    function greatestCommonDivisor(first, second) {
+      let left = Math.abs(first);
+      let right = Math.abs(second);
+      while (right !== 0) {
+        [left, right] = [right, left % right];
+      }
+      return left;
+    }
+
+    function positionUnits(quantities) {
+      return quantities.reduce(greatestCommonDivisor, 0);
+    }
+
+    function selectedStrike(row) {
+      if (!row) return "";
+      if (row.dataset.strikeRole === "center-mirror") {
+        return legContainer.querySelector('[data-strike-role="center"] [data-field="strike"]').value;
+      }
+      return row.querySelector('[data-field="strike"]')?.value || "";
+    }
+
+    function loadedSymbolForRow(row) {
+      if (row?.dataset.strikeRole === "center-mirror") {
+        return roleRow("center")?.dataset.loadedSymbol || "";
+      }
+      return row?.dataset.loadedSymbol || "";
+    }
+
+    function updateLegSummaries() {
+      const rows = [...legContainer.querySelectorAll(".leg-row")];
+      rows.forEach(row => {
+        const action = row.querySelector('[data-field="action"]').value;
+        row.classList.toggle("short-leg", action === "SELL_TO_OPEN");
+        row.classList.toggle("long-leg", action === "BUY_TO_OPEN");
+        row.querySelector('[data-field="expiration-display"]').textContent =
+          expirationForAction(action) || "—";
+        if (row.dataset.strikeRole === "center-mirror") {
+          row.querySelector('[data-field="strike-display"]').textContent =
+            selectedStrike(row) || "Same center strike";
+        }
+      });
+      if (!activePositionQuote) renderEmptyGreekTable();
+    }
+
+    function renderEmptyGreekTable() {
+      const greekRows = document.querySelector("#leg-greeks");
+      const symbol = symbolInput.value.trim().toUpperCase();
+      const rows = [...legContainer.querySelectorAll(".leg-row")];
+      greekRows.replaceChildren();
+      for (const legRow of rows) {
+        const action = legRow.querySelector('[data-field="action"]').value;
+        const expiration = expirationForAction(action);
+        const strike = selectedStrike(legRow);
+        const optionType = legRow.querySelector('[data-field="optionType"]').value;
+        const option = symbol && expiration && strike
+          ? `${symbol} $${Number(strike).toLocaleString(undefined, {
+            maximumFractionDigits: 3
+          })} ${optionType === "CALL" ? "Call" : "Put"} (${expiration})`
+          : "—";
+        const row = document.createElement("tr");
+        row.classList.add(action === "BUY_TO_OPEN" ? "long-leg" : "short-leg");
+        const values = [
+          option,
+          action === "BUY_TO_OPEN" ? "Buy" : "Sell",
+          legRow.querySelector('[data-field="quantity"]').value || "—",
+          "—", "—", "—", "—", "—", "—", "—", "—", "—"
+        ];
+        for (const value of values) {
+          const cell = document.createElement("td");
+          cell.textContent = value;
+          row.append(cell);
+        }
+        greekRows.append(row);
+      }
+      const positionRow = document.createElement("tr");
+      positionRow.classList.add("position-total-row");
+      for (const value of ["Position total", "", "", "", "", "", "", "", "—", "—", "—", "—"]) {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        positionRow.append(cell);
+      }
+      greekRows.append(positionRow);
+    }
+
+    function renderLegChoice(fieldName, selectedValue, choices, disabled, groupLabel) {
+      const selectedChoice = choices.find(choice => choice.value === selectedValue);
+      const valueInput = `<input type="hidden" data-field="${fieldName}" value="${selectedValue}">`;
+      if (disabled) return `${valueInput}<span class="leg-value">${selectedChoice.label}</span>`;
+      const buttons = choices.map(choice => `
+        <button type="button" class="choice-toggle" data-choice-field="${fieldName}"
+          data-choice-value="${choice.value}" aria-pressed="${choice.value === selectedValue}">
+          ${choice.label}
+        </button>`).join("");
+      return `${valueInput}<div class="choice-toggle-group" role="group" aria-label="${groupLabel}">${buttons}</div>`;
+    }
+
+    function renderLegs() {
+      const count = legCounts[spreadSelect.value];
+      renderPositionControls();
+      const table = document.createElement("table");
+      table.className = "legs-table";
+      table.innerHTML = `<thead><tr><th>Action</th><th>Type</th><th>Expiration</th><th>Strike</th><th>Qty</th><th>Prob OTM</th></tr></thead>`;
+      const body = document.createElement("tbody");
+      for (let i = 0; i < count; i++) {
+        const definition = legDefinition(i);
+        const row = document.createElement("tr");
+        row.className = "leg-row";
+        row.dataset.strikeRole = definition.strikeRole;
+        const actionDisabled = isVerticalSpread() || ["IRON_CONDOR", "IRON_BUTTERFLY", "CALENDAR",
+          "DIAGONAL", "DOUBLE_DIAGONAL"].includes(spreadSelect.value);
+        const optionTypeDisabled = isVerticalSpread()
+          || ["IRON_CONDOR", "IRON_BUTTERFLY", "DOUBLE_DIAGONAL"].includes(spreadSelect.value);
+        const strikeCell = definition.strikeRole === "center-mirror"
+          ? '<td data-field="strike-display">Same center strike</td>'
+          : `<td><select aria-label="${definition.strikeRole === "center"
+            ? "Shared short strike" : `Leg ${i + 1} strike`}"
+            data-field="strike" required disabled><option value="">Choose expiration first</option></select></td>`;
+        const optionTypeCell = renderLegChoice("optionType", definition.optionType, [
+          { value: "CALL", label: "Call" },
+          { value: "PUT", label: "Put" }
+        ], optionTypeDisabled, `Leg ${i + 1} option type`);
+        const actionCell = renderLegChoice("action", definition.action, [
+          { value: "BUY_TO_OPEN", label: "Buy" },
+          { value: "SELL_TO_OPEN", label: "Sell" }
+        ], actionDisabled, `Leg ${i + 1} opening action`);
+        const baseQuantity = spreadSelect.value === "BUTTERFLY"
+          && definition.strikeRole === "center" ? 2 : 1;
+        row.innerHTML = `
+          <td>${actionCell}</td>
+          <td>${optionTypeCell}</td>
+          <td data-field="expiration-display">—</td>
+          ${strikeCell}
+          <td><input type="number" data-field="quantity" aria-label="Leg ${i + 1} quantity"
+            min="1" max="1000" step="1" data-base="${baseQuantity}"
+            value="${baseQuantity * positionMultiplier}" required></td>
+          <td data-field="otm-probability" aria-label="Probability of expiring out of the money">—</td>`;
+        body.append(row);
+      }
+      table.append(body);
+      legContainer.replaceChildren(table);
+      updateLegSummaries();
+      clearQuote();
+      updateQuoteAvailability();
+      refreshExpirationOptions();
+    }
+
+    function syncChoiceButtons(row, fieldName) {
+      const selectedValue = row.querySelector(`[data-field="${fieldName}"]`).value;
+      row.querySelectorAll(`[data-choice-field="${fieldName}"]`).forEach(button => {
+        button.setAttribute("aria-pressed", String(button.dataset.choiceValue === selectedValue));
+      });
+    }
+
+    const expirationRequests = new Map();
+    const expirationSelections = new Map();
+    const strikeRequests = new Map();
+    const underlyingPriceRequests = new Map();
+    const symbolInput = form.elements.symbol;
+    const symbolSuggestionPanel = document.querySelector("#symbol-suggestion-panel");
+    const symbolSuggestions = document.querySelector("#symbol-suggestions");
+    const symbolSearchStatus = document.querySelector("#symbol-search-status");
+    const selectedSymbolName = document.querySelector("#selected-symbol-name");
+    const symbolPicker = document.querySelector(".symbol-picker");
+    const profitLossPanel = document.querySelector("#profit-loss-panel");
+    const profitLossStatus = document.querySelector("#profit-loss-status");
+    const profitLossChart = document.querySelector("#profit-loss-chart");
+    const underlyingChartPanel = document.querySelector("#underlying-chart-panel");
+    const underlyingChartToggle = document.querySelector("#underlying-chart-toggle");
+    const underlyingChartRefresh = document.querySelector("#underlying-chart-refresh");
+    const underlyingChartInterval = document.querySelector("#underlying-chart-interval");
+    const underlyingChartStatus = document.querySelector("#underlying-chart-status");
+    const underlyingChart = document.querySelector("#underlying-chart");
+    const positionPriceSlider = document.querySelector("#position-price-slider");
+    const positionPriceSelected = document.querySelector("#position-price-selected");
+    let profitLossRequest = 0;
+    let renderedProfitLossKey = "";
+    let activePositionQuote = null;
+    let positionMetricsRequest = 0;
+    let ivPercentileRefreshTimer = null;
+    let positionQuoteRequest = 0;
+    let positionQuoteTimer = null;
+    let positionQuoteLoading = false;
+    let positionQuoteReady = false;
+    let underlyingChartRequest = 0;
+
+    function positionSelectedSymbolName() {
+      if (selectedSymbolName.hidden) return;
+      const context = document.createElement("canvas").getContext("2d");
+      if (!context) return;
+      const styles = getComputedStyle(symbolInput);
+      context.font = styles.font;
+      const left = Number.parseFloat(styles.paddingLeft)
+        + context.measureText(symbolInput.value).width + 6;
+      selectedSymbolName.style.left = `${left}px`;
+      selectedSymbolName.style.right = styles.paddingRight;
+    }
+
+    window.addEventListener("resize", positionSelectedSymbolName);
+
+    function setActiveSymbolSuggestion(option) {
+      for (const item of symbolSuggestions.querySelectorAll('[role="option"]')) {
+        item.setAttribute("aria-selected", String(item === option));
+      }
+      pendingSymbolSuggestion = option
+        ? { symbol: option.dataset.symbol, description: option.dataset.description }
+        : null;
+    }
+
+    function searchSymbolsAsTyped() {
+      const query = symbolInput.value.trim().toUpperCase();
+      const requestId = ++symbolSearchRequest;
+      if (selectedSymbol && query === selectedSymbol) {
+        return;
+      }
+      if (query !== selectedSymbol) {
+        selectedSymbol = "";
+        selectedSymbolName.textContent = "";
+        selectedSymbolName.hidden = true;
+      }
+      pendingSymbolSuggestion = null;
+      clearTimeout(symbolSearchTimer);
+      if (symbolSearchController) symbolSearchController.abort();
+      symbolSuggestions.replaceChildren();
+      symbolSuggestionPanel.hidden = true;
+      symbolInput.setAttribute("aria-expanded", "false");
+      if (!query) {
+        symbolSearchStatus.textContent = "";
+        return;
+      }
+      if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(query)) {
+        return;
+      }
+      symbolSuggestionPanel.hidden = false;
+      symbolInput.setAttribute("aria-expanded", "true");
+      symbolSearchStatus.textContent = `Searching Tradier symbols for ${query}…`;
+      symbolSearchTimer = setTimeout(async () => {
+        const controller = new AbortController();
+        symbolSearchController = controller;
+        try {
+          const response = await fetch(`api/trades/symbols?${new URLSearchParams({ q: query })}`,
+            { signal: controller.signal });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.detail || `Symbol search failed (${response.status}).`);
+          if (requestId !== symbolSearchRequest || query !== symbolInput.value.trim().toUpperCase()) return;
+          if (!Array.isArray(data) || data.some(suggestion =>
+            typeof suggestion.symbol !== "string" || typeof suggestion.description !== "string")) {
+            throw new Error("Tradier returned an invalid symbol list.");
+          }
+          for (const suggestion of data) {
+            const option = document.createElement("div");
+            option.id = `symbol-option-${suggestion.symbol}`;
+            option.setAttribute("role", "option");
+            option.tabIndex = -1;
+            option.dataset.symbol = suggestion.symbol;
+            option.dataset.description = suggestion.description;
+            option.textContent = `${suggestion.symbol} — ${suggestion.description}`;
+            option.addEventListener("mouseenter", () => setActiveSymbolSuggestion(option));
+            symbolSuggestions.append(option);
+          }
+          const firstMatch = symbolSuggestions.querySelector('[role="option"]');
+          setActiveSymbolSuggestion(firstMatch);
+          symbolSearchStatus.textContent = data.length
+            ? `${data.length} matches for ${query}; first match selected. Keep typing or leave the field to use it.`
+            : `No symbols found for ${query}.`;
+          if (firstMatch) {
+            selectedSymbol = firstMatch.dataset.symbol;
+            selectedSymbolName.textContent = firstMatch.dataset.description;
+            selectedSymbolName.title = firstMatch.dataset.description;
+            selectedSymbolName.hidden = false;
+            positionSelectedSymbolName();
+          }
+          if (firstMatch && !symbolPicker.contains(document.activeElement)) {
+            selectSymbol(firstMatch.dataset.symbol, false);
+          }
+        } catch (error) {
+          if (error.name === "AbortError" || requestId !== symbolSearchRequest) return;
+          symbolSearchStatus.textContent = error.message;
+        }
+      }, 150);
+    }
+
+    function selectSymbol(symbol, focusInput = true) {
+      const option = [...symbolSuggestions.querySelectorAll('[role="option"]')]
+        .find(item => item.dataset.symbol === symbol);
+      const description = option?.dataset.description
+        || pendingSymbolSuggestion?.description || symbol;
+      symbolInput.value = symbol;
+      selectedSymbol = symbol;
+      pendingSymbolSuggestion = null;
+      selectedSymbolName.textContent = description;
+      selectedSymbolName.title = description;
+      selectedSymbolName.hidden = false;
+      positionSelectedSymbolName();
+      symbolSuggestionPanel.hidden = true;
+      symbolInput.setAttribute("aria-expanded", "false");
+      symbolInput.dispatchEvent(new Event("input", { bubbles: true }));
+      symbolInput.dispatchEvent(new Event("change", { bubbles: true }));
+      if (focusInput) symbolInput.focus();
+    }
+
+    symbolSuggestions.addEventListener("mousedown", event => event.preventDefault());
+    symbolSuggestions.addEventListener("click", event => {
+      const option = event.target.closest('[role="option"]');
+      if (option) selectSymbol(option.dataset.symbol);
+    });
+    document.querySelector(".symbol-picker").addEventListener("keydown", event => {
+      if (event.key === "Tab" && event.target === symbolInput && pendingSymbolSuggestion) {
+        selectSymbol(pendingSymbolSuggestion.symbol, false);
+        return;
+      }
+      const options = [...symbolSuggestions.querySelectorAll('[role="option"]')];
+      const focusedIndex = options.indexOf(document.activeElement);
+      const activeIndex = options.findIndex(option => option.getAttribute("aria-selected") === "true");
+      if (event.key === "ArrowDown" && options.length) {
+        event.preventDefault();
+        const nextIndex = Math.min((focusedIndex >= 0 ? focusedIndex : activeIndex) + 1, options.length - 1);
+        setActiveSymbolSuggestion(options[nextIndex]);
+        options[nextIndex].focus();
+      } else if (event.key === "ArrowUp" && options.length) {
+        event.preventDefault();
+        const nextIndex = (focusedIndex >= 0 ? focusedIndex : activeIndex) - 1;
+        if (nextIndex < 0) {
+          symbolInput.focus();
+          setActiveSymbolSuggestion(options[0]);
+        } else {
+          setActiveSymbolSuggestion(options[nextIndex]);
+          options[nextIndex].focus();
+        }
+      } else if (event.key === "Escape") {
+        symbolSuggestionPanel.hidden = true;
+        symbolInput.setAttribute("aria-expanded", "false");
+        symbolInput.focus();
+      } else if (event.key === "Enter" && pendingSymbolSuggestion) {
+        event.preventDefault();
+        selectSymbol(pendingSymbolSuggestion.symbol);
+      }
+    });
+    symbolPicker.addEventListener("focusout", () => {
+      setTimeout(() => {
+        if (!symbolPicker.contains(document.activeElement)) {
+          if (pendingSymbolSuggestion) {
+            selectSymbol(pendingSymbolSuggestion.symbol, false);
+          } else {
+          symbolSuggestionPanel.hidden = true;
+          symbolInput.setAttribute("aria-expanded", "false");
+          }
+        }
+      }, 0);
+    });
+
+    async function fetchExpirations(symbol) {
+      if (!expirationRequests.has(symbol)) {
+        const request = fetch(`api/trades/expirations?${new URLSearchParams({ symbol })}`)
+          .then(async response => {
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || `Request failed (${response.status}).`);
+            if (!Array.isArray(data)
+                || data.some(expiration => !/^\d{4}-\d{2}-\d{2}$/.test(expiration))) {
+              throw new Error("Tradier returned an invalid expiration list.");
+            }
+            return data;
+          })
+          .catch(error => {
+            expirationRequests.delete(symbol);
+            throw error;
+          });
+        expirationRequests.set(symbol, request);
+      }
+      return expirationRequests.get(symbol);
+    }
+
+    async function refreshExpirationOptions() {
+      const symbol = form.elements.symbol.value.trim().toUpperCase();
+      const fields = [...document.querySelectorAll("[data-position-expiration]")];
+      const todayUtc = new Date();
+      todayUtc.setUTCHours(0, 0, 0, 0);
+      const requestId = String((Number(fields[0]?.dataset.request || "0") + 1));
+      const selectedValues = new Map(fields.map(field => {
+        const role = field.dataset.positionExpiration;
+        return [role, field.value || expirationSelections.get(role)
+          || expirationSelections.get(role === "POSITION" ? "SELL_TO_OPEN" : "POSITION") || ""];
+      }));
+      for (const field of fields) {
+        field.dataset.request = requestId;
+        field.disabled = true;
+        field.replaceChildren(new Option("Loading expirations…", ""));
+      }
+      if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol)) {
+        for (const field of fields) {
+          field.replaceChildren(new Option("Enter valid symbol first", ""));
+        }
+        await refreshStrikeOptions();
+        updateLegSummaries();
+        updateQuoteAvailability();
+        return;
+      }
+      try {
+        const expirations = await fetchExpirations(symbol);
+        if (fields.some(field => field.dataset.request !== requestId)) return;
+        for (const field of fields) {
+          const role = field.dataset.positionExpiration;
+          const currentValue = selectedValues.get(role);
+          const shortExpiration = document.querySelector('[data-position-expiration="SELL_TO_OPEN"]')?.value;
+          const choices = role === "BUY_TO_OPEN" && shortExpiration
+            ? expirations.filter(expiration => expiration > shortExpiration)
+            : expirations;
+          field.replaceChildren(new Option("Choose expiration", ""));
+          for (const expiration of choices) {
+            const expirationDate = new Date(`${expiration}T00:00:00Z`);
+            const daysToExpiration = Math.round((expirationDate - todayUtc) / 86400000);
+            field.add(new Option(`${expiration} (${daysToExpiration} DTE)`, expiration));
+          }
+          field.disabled = false;
+          if (choices.includes(currentValue)) field.value = currentValue;
+          expirationSelections.set(role, field.value);
+        }
+      } catch (error) {
+        if (fields.some(field => field.dataset.request !== requestId)) return;
+        for (const field of fields) {
+          field.replaceChildren(new Option("Unable to load expirations", ""));
+        }
+        status.dataset.error = "true";
+        status.textContent = error.message;
+      }
+      updateLegSummaries();
+      await refreshStrikeOptions(true);
+      updateQuoteAvailability();
+      schedulePositionQuote();
+    }
+
+    async function fetchStrikes(symbol, expiration, optionType) {
+      const key = `${symbol}|${expiration}|${optionType}`;
+      if (!strikeRequests.has(key)) {
+        const request = fetch(`api/trades/strikes?${new URLSearchParams({ symbol, expiration, optionType })}`)
+          .then(async response => {
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || `Request failed (${response.status}).`);
+            if (!Array.isArray(data) || data.some(strike => !Number.isFinite(Number(strike)))) {
+              throw new Error("Tradier returned an invalid strike list.");
+            }
+            return data.map(Number);
+          })
+          .catch(error => {
+            strikeRequests.delete(key);
+            throw error;
+          });
+        strikeRequests.set(key, request);
+      }
+      return strikeRequests.get(key);
+    }
+
+    async function fetchUnderlyingPrice(symbol) {
+      if (!underlyingPriceRequests.has(symbol)) {
+        const request = fetch(`api/trades/underlying-price?${new URLSearchParams({ symbol })}`)
+          .then(async response => {
+            const data = Number(await response.json());
+            if (!response.ok) throw new Error(`Unable to load underlying price (${response.status}).`);
+            if (!Number.isFinite(data) || data <= 0) {
+              throw new Error("Tradier returned an invalid underlying price.");
+            }
+            return data;
+          })
+          .catch(error => {
+            underlyingPriceRequests.delete(symbol);
+            throw error;
+          });
+        underlyingPriceRequests.set(symbol, request);
+      }
+      return underlyingPriceRequests.get(symbol);
+    }
+
+    function roleRow(role) {
+      return legContainer.querySelector(`[data-strike-role="${role}"]`);
+    }
+
+    function setDefaultStrike(row, strike, replace = false) {
+      const select = row?.querySelector('[data-field="strike"]');
+      if (!select || (!replace && select.value)
+          || ![...select.options].some(option => option.value === String(strike))) {
+        return;
+      }
+      select.value = String(strike);
+    }
+
+    function setMinimumCreditRiskWidth(putRole, putAnchor, callRole, callAnchor) {
+      if (orderType.value !== "CREDIT") return;
+      const credit = Number(document.querySelector("#limit-price").value);
+      if (!Number.isFinite(credit) || credit < 0) return;
+      const putSelect = roleRow(putRole)?.querySelector('[data-field="strike"]');
+      const callSelect = roleRow(callRole)?.querySelector('[data-field="strike"]');
+      if (!putSelect || !callSelect) return;
+      const putStrike = Number(putSelect.value);
+      const callStrike = Number(callSelect.value);
+      if (putAnchor - putStrike > credit && callStrike - callAnchor > credit) return;
+      const puts = [...putSelect.options].map(option => Number(option.value))
+        .filter(strike => strike > 0 && putAnchor - strike > credit)
+        .sort((left, right) => right - left);
+      const calls = [...callSelect.options].map(option => Number(option.value))
+        .filter(strike => strike > 0 && strike - callAnchor > credit)
+        .sort((left, right) => left - right);
+      const matchingPair = puts.map(put => ({
+        put,
+        call: calls.find(call => Math.abs(call - (callAnchor + putAnchor - put)) < 0.001)
+      })).find(pair => pair.call !== undefined);
+      if (matchingPair) {
+        putSelect.value = String(matchingPair.put);
+        callSelect.value = String(matchingPair.call);
+        return;
+      }
+      if (puts.length) putSelect.value = String(puts[0]);
+      if (calls.length) callSelect.value = String(calls[0]);
+    }
+
+    function defaultMatchingWidth(changedRow) {
+      const role = changedRow.dataset.strikeRole;
+      const equalWidthStrike = (anchor, width, direction) =>
+        Number((anchor + width * direction).toFixed(3));
+      if (spreadSelect.value === "BUTTERFLY") {
+        const center = Number(selectedStrike(roleRow("center")));
+        if (!center) return;
+        if (role === "left-wing" && selectedStrike(changedRow)) {
+          setDefaultStrike(roleRow("right-wing"),
+            equalWidthStrike(center, center - Number(selectedStrike(changedRow)), 1), true);
+        } else if (role === "right-wing" && selectedStrike(changedRow)) {
+          setDefaultStrike(roleRow("left-wing"),
+            equalWidthStrike(center, Number(selectedStrike(changedRow)) - center, -1), true);
+        } else if (role === "center") {
+          const left = Number(selectedStrike(roleRow("left-wing")));
+          const right = Number(selectedStrike(roleRow("right-wing")));
+          if (left) setDefaultStrike(roleRow("right-wing"),
+            equalWidthStrike(center, center - left, 1), true);
+          else if (right) setDefaultStrike(roleRow("left-wing"),
+            equalWidthStrike(center, right - center, -1), true);
+        }
+        return;
+      }
+      if (spreadSelect.value === "IRON_BUTTERFLY") {
+        const center = Number(selectedStrike(roleRow("center")));
+        if (!center) return;
+        if (role === "put-wing" && selectedStrike(changedRow)) {
+          setDefaultStrike(roleRow("call-wing"),
+            equalWidthStrike(center, center - Number(selectedStrike(changedRow)), 1), true);
+        } else if (role === "call-wing" && selectedStrike(changedRow)) {
+          setDefaultStrike(roleRow("put-wing"),
+            equalWidthStrike(center, Number(selectedStrike(changedRow)) - center, -1), true);
+        }
+        setMinimumCreditRiskWidth("put-wing", center, "call-wing", center);
+        return;
+      }
+      if (spreadSelect.value === "IRON_CONDOR") {
+        const sourceIsPut = role.startsWith("put-");
+        const sourceInner = Number(selectedStrike(roleRow(sourceIsPut ? "put-inner" : "call-inner")));
+        const sourceWing = Number(selectedStrike(roleRow(sourceIsPut ? "put-wing" : "call-wing")));
+        const targetIsPut = !sourceIsPut;
+        const targetInner = Number(selectedStrike(roleRow(targetIsPut ? "put-inner" : "call-inner")));
+        if (!sourceInner || !sourceWing || !targetInner) return;
+        setDefaultStrike(roleRow(targetIsPut ? "put-wing" : "call-wing"),
+          equalWidthStrike(targetInner, Math.abs(sourceInner - sourceWing), targetIsPut ? -1 : 1), true);
+        setMinimumCreditRiskWidth(
+          "put-wing",
+          Number(selectedStrike(roleRow("put-inner"))),
+          "call-wing",
+          Number(selectedStrike(roleRow("call-inner")))
+        );
+      }
+    }
+
+    function constrainStrikes(row, strikes, centerPrice) {
+      const role = row.dataset.strikeRole;
+      if (isVerticalSpread()) {
+        const lowerRole = spreadSelect.value.startsWith("BULL_") ? "vertical-long" : "vertical-short";
+        const otherRole = role === "vertical-long" ? "vertical-short" : "vertical-long";
+        const otherStrike = Number(selectedStrike(roleRow(otherRole)));
+        if (role === lowerRole && otherStrike > 0) return strikes.filter(strike => strike < otherStrike);
+        if (role !== lowerRole && otherStrike > 0) return strikes.filter(strike => strike > otherStrike);
+        return strikes;
+      }
+      if (spreadSelect.value === "BUTTERFLY") {
+        if (role !== "left-wing" && role !== "right-wing") return strikes;
+        const center = Number(selectedStrike(roleRow("center")));
+        return strikes.filter(strike => role === "left-wing" ? strike < center : strike > center);
+      }
+      if (spreadSelect.value === "IRON_BUTTERFLY") {
+        if (role !== "put-wing" && role !== "call-wing") return strikes;
+        const center = Number(selectedStrike(roleRow("center")));
+        if (center > 0) {
+          return strikes.filter(strike => role === "put-wing" ? strike < center : strike > center);
+        }
+        return strikes;
+      }
+      if (spreadSelect.value === "CALENDAR") {
+        const anchor = Number(selectedStrike(roleRow("calendar-short")));
+        if (role === "calendar-long" && anchor > 0) {
+          return strikes.filter(strike => strike === anchor);
+        }
+        if (role === "calendar-short") return strikes.filter(strike =>
+          strike === Number(selectedStrike(roleRow("calendar-long"))) || !selectedStrike(roleRow("calendar-long")));
+      }
+      if (spreadSelect.value === "DIAGONAL") {
+        const short = Number(selectedStrike(roleRow("diagonal-short")));
+        const long = Number(selectedStrike(roleRow("diagonal-long")));
+        const optionType = row.querySelector('[data-field="optionType"]').value;
+        if (role === "diagonal-long" && short > 0) {
+          return strikes.filter(strike => optionType === "CALL" ? strike > short : strike < short);
+        }
+        if (role === "diagonal-short" && long > 0) {
+          return strikes.filter(strike => optionType === "CALL" ? strike < long : strike > long);
+        }
+      }
+      if (spreadSelect.value === "SINGLE_LEG") return strikes;
+      if (spreadSelect.value === "DOUBLE_DIAGONAL") {
+        const putShort = Number(selectedStrike(roleRow("put-short")));
+        const putLong = Number(selectedStrike(roleRow("put-long")));
+        const callLong = Number(selectedStrike(roleRow("call-long")));
+        const callShort = Number(selectedStrike(roleRow("call-short")));
+        if (role === "put-long") return putShort > 0
+          ? strikes.filter(strike => strike < putShort) : strikes;
+        if (role === "put-short") return callShort > 0
+          ? strikes.filter(strike => strike < callShort) : strikes;
+        if (role === "call-short") return putShort > 0
+          ? strikes.filter(strike => strike > putShort) : strikes;
+        if (role === "call-long") return callShort > 0
+          ? strikes.filter(strike => strike > callShort) : strikes;
+      }
+      if (spreadSelect.value === "IRON_CONDOR" && (role === "put-wing" || role === "put-inner")) {
+        const inner = Number(selectedStrike(roleRow("put-inner")));
+        const wing = Number(selectedStrike(roleRow("put-wing")));
+        const callInner = Number(selectedStrike(roleRow("call-inner")));
+        return strikes.filter(strike => role === "put-wing"
+          ? !(inner > 0) || strike < inner
+          : (!(wing > 0) || strike > wing) && (!(callInner > 0) || strike < callInner));
+      }
+      if (spreadSelect.value === "IRON_CONDOR" && (role === "call-wing" || role === "call-inner")) {
+        const inner = Number(selectedStrike(roleRow("call-inner")));
+        const wing = Number(selectedStrike(roleRow("call-wing")));
+        const putInner = Number(selectedStrike(roleRow("put-inner")));
+        return strikes.filter(strike => role === "call-wing"
+          ? !(inner > 0) || strike > inner
+          : (!(wing > 0) || strike < wing) && (!(putInner > 0) || strike > putInner));
+      }
+      return strikes;
+    }
+
+    async function updateStrikeOptions(row) {
+      if (row.dataset.strikeRole === "center-mirror") return;
+      const select = row.querySelector('[data-field="strike"]');
+      const selectedValue = select.value;
+      const action = row.querySelector('[data-field="action"]').value;
+      const expiration = expirationForAction(action);
+      const symbol = form.elements.symbol.value.trim().toUpperCase();
+      const optionType = row.querySelector('[data-field="optionType"]').value;
+      const requestId = Number(row.dataset.strikeRequest || "0") + 1;
+      row.dataset.strikeRequest = requestId;
+      select.disabled = true;
+      select.replaceChildren(new Option("Loading strikes…", ""));
+      if (!expiration || !/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol)) {
+        select.replaceChildren(new Option(
+          expiration ? "Enter a valid symbol first" : "Choose expiration first", ""));
+        updateQuoteAvailability();
+        return;
+      }
+      try {
+        let strikes;
+        if (row.dataset.strikeRole === "center" && spreadSelect.value === "IRON_BUTTERFLY") {
+          const [puts, calls] = await Promise.all([
+            fetchStrikes(symbol, expiration, "PUT"),
+            fetchStrikes(symbol, expiration, "CALL")
+          ]);
+          const callStrikes = new Set(calls.map(String));
+          strikes = puts.filter(strike => callStrikes.has(String(strike)));
+          if (strikes.length === 0) {
+            throw new Error("Tradier returned no strike shared by the put and call options.");
+          }
+        } else {
+          strikes = await fetchStrikes(symbol, expiration, optionType);
+        }
+        const role = row.dataset.strikeRole;
+        const atmRoles = ["single", "center", "vertical-short", "vertical-long", "put-inner", "call-inner",
+          "calendar-short", "diagonal-short", "put-short", "put-long", "call-long", "call-short"];
+        const centerPrice = atmRoles.includes(role)
+          ? await fetchUnderlyingPrice(symbol) : null;
+        if (Number(row.dataset.strikeRequest) !== requestId) return;
+        row.dataset.loadedSymbol = symbol;
+        strikes = constrainStrikes(row, strikes, centerPrice).sort((left, right) => left - right);
+        if (strikes.length === 0) {
+          select.replaceChildren(new Option("No strikes fit this spread", ""));
+          select.disabled = true;
+          return;
+        }
+        select.replaceChildren(new Option("Choose strike", ""));
+        let atmStrike = null;
+        if (centerPrice !== null) {
+          atmStrike = strikes.reduce((nearest, strike) =>
+            Math.abs(strike - centerPrice) < Math.abs(nearest - centerPrice) ? strike : nearest);
+        }
+        for (const strike of strikes) {
+          const option = new Option(String(strike), String(strike));
+          option.dataset.atm = String(strike === atmStrike);
+          select.add(option);
+        }
+        if (selectedValue && strikes.some(strike => String(strike) === selectedValue)) {
+          select.value = selectedValue;
+        } else {
+          let preferredStrike = atmStrike;
+          if (role === "put-short") {
+            const belowSpot = strikes.filter(strike => strike < centerPrice);
+            preferredStrike = belowSpot.filter(strike => strike <= centerPrice * 0.98).at(-1)
+              ?? belowSpot.at(-1);
+          } else if (role === "call-short") {
+            const aboveSpot = strikes.filter(strike => strike > centerPrice);
+            preferredStrike = aboveSpot.find(strike => strike >= centerPrice * 1.02)
+              ?? aboveSpot[0];
+          } else if (role === "put-inner") {
+            preferredStrike = strikes.filter(strike => strike < centerPrice).slice(-1)[0];
+          } else if (role === "call-inner") {
+            preferredStrike = strikes.find(strike => strike > centerPrice);
+          } else if (role === "vertical-short") {
+            const optionType = row.querySelector('[data-field="optionType"]').value;
+            preferredStrike = optionType === "CALL"
+              ? strikes.find(strike => strike > centerPrice)
+              : strikes.filter(strike => strike < centerPrice).at(-1);
+          } else if (role === "vertical-long") {
+            const optionType = row.querySelector('[data-field="optionType"]').value;
+            if (verticalDebitDefault()) {
+              preferredStrike = optionType === "CALL"
+                ? strikes.filter(strike => strike < centerPrice).at(-1)
+                : strikes.find(strike => strike > centerPrice);
+            } else {
+              const shortStrike = Number(selectedStrike(roleRow("vertical-short")));
+              preferredStrike = optionType === "CALL"
+                ? strikes.find(strike => strike > shortStrike)
+                : strikes.filter(strike => strike < shortStrike).at(-1);
+            }
+          } else if (role === "diagonal-long") {
+            const optionType = row.querySelector('[data-field="optionType"]').value;
+            const anchor = Number(selectedStrike(roleRow("diagonal-short")));
+            preferredStrike = optionType === "CALL"
+              ? strikes.find(strike => strike > anchor)
+              : strikes.filter(strike => strike < anchor).slice(-1)[0];
+          } else if (role === "calendar-long") {
+            preferredStrike = Number(selectedStrike(roleRow("calendar-short")));
+          } else if (["left-wing", "put-wing"].includes(role)) {
+            preferredStrike = strikes.slice(-1)[0];
+          } else if (["right-wing", "call-wing"].includes(role)) {
+            preferredStrike = strikes[0];
+          } else if (role === "put-long") {
+            const shortPut = Number(selectedStrike(roleRow("put-short")));
+            const wingCandidates = strikes.filter(strike => strike < shortPut);
+            preferredStrike = wingCandidates.at(-2) ?? wingCandidates.at(-1);
+          } else if (role === "call-long") {
+            const shortCall = Number(selectedStrike(roleRow("call-short")));
+            const wingCandidates = strikes.filter(strike => strike > shortCall);
+            preferredStrike = wingCandidates[1] ?? wingCandidates[0];
+          }
+          if (Number.isFinite(preferredStrike)) select.value = String(preferredStrike);
+        }
+        select.disabled = false;
+      } catch (error) {
+        if (Number(row.dataset.strikeRequest) !== requestId) return;
+        select.replaceChildren(new Option("Unable to load strikes", ""));
+        status.dataset.error = "true";
+        status.textContent = error.message;
+      } finally {
+        if (Number(row.dataset.strikeRequest) === requestId) updateQuoteAvailability();
+      }
+    }
+
+    async function refreshStrikeOptions(matchDefaultWidths = false) {
+      const rows = [...legContainer.querySelectorAll(".leg-row")];
+      if (isVerticalSpread()) {
+        await updateStrikeOptions(roleRow("vertical-short"));
+        await updateStrikeOptions(roleRow("vertical-long"));
+        await updateStrikeOptions(roleRow("vertical-short"));
+        await updateStrikeOptions(roleRow("vertical-long"));
+        return;
+      }
+      if (spreadSelect.value === "CALENDAR" || spreadSelect.value === "DIAGONAL") {
+        await updateStrikeOptions(roleRow(spreadSelect.value === "CALENDAR"
+          ? "calendar-short" : "diagonal-short"));
+        await updateStrikeOptions(roleRow(spreadSelect.value === "CALENDAR"
+          ? "calendar-long" : "diagonal-long"));
+        return;
+      }
+      if (spreadSelect.value === "IRON_BUTTERFLY") {
+        const center = rows.find(row => row.dataset.strikeRole === "center");
+        await updateStrikeOptions(center);
+        const wings = rows
+          .filter(row => row.dataset.strikeRole === "put-wing" || row.dataset.strikeRole === "call-wing")
+          .map(updateStrikeOptions);
+        await Promise.all(wings);
+        if (matchDefaultWidths) {
+          defaultMatchingWidth(roleRow("put-wing"));
+          updateQuoteAvailability();
+        }
+        return;
+      }
+      if (spreadSelect.value === "BUTTERFLY") {
+        const center = rows.find(row => row.dataset.strikeRole === "center");
+        await updateStrikeOptions(center);
+        const leftWing = roleRow("left-wing");
+        const rightWing = roleRow("right-wing");
+        await updateStrikeOptions(leftWing);
+        await updateStrikeOptions(rightWing);
+        defaultMatchingWidth(leftWing);
+        await updateStrikeOptions(rightWing);
+        await updateStrikeOptions(leftWing);
+        return;
+      }
+      if (spreadSelect.value === "IRON_CONDOR") {
+        const innerLegs = rows.filter(row =>
+          row.dataset.strikeRole === "put-inner" || row.dataset.strikeRole === "call-inner");
+        const wings = rows.filter(row =>
+          row.dataset.strikeRole === "put-wing" || row.dataset.strikeRole === "call-wing");
+        for (const row of innerLegs) await updateStrikeOptions(row);
+        for (const row of wings) await updateStrikeOptions(row);
+        if (matchDefaultWidths) {
+          defaultMatchingWidth(roleRow("put-inner"));
+          updateQuoteAvailability();
+        }
+        for (const row of innerLegs) await updateStrikeOptions(row);
+        for (const row of wings) await updateStrikeOptions(row);
+        return;
+      }
+      if (spreadSelect.value === "DOUBLE_DIAGONAL") {
+        const shorts = [roleRow("put-short"), roleRow("call-short")];
+        const longs = [roleRow("put-long"), roleRow("call-long")];
+        for (const row of shorts) await updateStrikeOptions(row);
+        for (const row of longs) await updateStrikeOptions(row);
+        for (const row of shorts) await updateStrikeOptions(row);
+        for (const row of longs) await updateStrikeOptions(row);
+        return;
+      }
+      await Promise.all(rows.map(updateStrikeOptions));
+    }
+
+    function strikeOrderValid(rows) {
+      const strike = role => Number(selectedStrike(roleRow(role)));
+      if (isVerticalSpread()) {
+        const lowerRole = spreadSelect.value.startsWith("BULL_") ? "vertical-long" : "vertical-short";
+        const upperRole = lowerRole === "vertical-long" ? "vertical-short" : "vertical-long";
+        return strike(lowerRole) < strike(upperRole);
+      }
+      if (spreadSelect.value === "IRON_CONDOR") {
+        return strike("put-wing") < strike("put-inner")
+          && strike("put-inner") < strike("call-inner")
+          && strike("call-inner") < strike("call-wing");
+      }
+      if (spreadSelect.value === "BUTTERFLY") {
+        return strike("left-wing") < strike("center")
+          && strike("center") < strike("right-wing")
+          && strike("center") - strike("left-wing") === strike("right-wing") - strike("center")
+          && rowAction("left-wing") === rowAction("right-wing")
+          && rowAction("left-wing") !== rowAction("center");
+      }
+      if (spreadSelect.value === "IRON_BUTTERFLY") {
+        return strike("put-wing") < strike("center") && strike("call-wing") > strike("center");
+      }
+      if (spreadSelect.value === "CALENDAR") {
+        return strike("calendar-short") === strike("calendar-long");
+      }
+      if (spreadSelect.value === "DIAGONAL") {
+        return rowAction("diagonal-short") === "SELL_TO_OPEN"
+          && (rowType("diagonal-short") === "CALL"
+            ? strike("diagonal-long") > strike("diagonal-short")
+            : strike("diagonal-long") < strike("diagonal-short"));
+      }
+      if (spreadSelect.value === "DOUBLE_DIAGONAL") {
+        return strike("put-long") < strike("put-short")
+          && strike("put-short") < strike("call-short")
+          && strike("call-short") < strike("call-long");
+      }
+      return rows.every(row => Number(selectedStrike(row)) > 0);
+    }
+
+    function rowAction(role) {
+      return roleRow(role)?.querySelector('[data-field="action"]').value;
+    }
+
+    function rowType(role) {
+      return roleRow(role)?.querySelector('[data-field="optionType"]').value;
+    }
+
+    function profitLossKey(rows) {
+      const quantities = quantitiesForRows(rows);
+      return JSON.stringify({
+        symbol: symbolInput.value.trim().toUpperCase(),
+        orderType: orderType.value,
+        limitPrice: document.querySelector("#limit-price").value,
+        marketQuote: activePositionQuote && {
+          quotedAt: activePositionQuote.quotedAt,
+          legs: activePositionQuote.legs.map(leg => ({
+            bid: leg.bid,
+            ask: leg.ask,
+            impliedVolatility: leg.impliedVolatility
+          }))
+        },
+        legs: rows.map(row => ({
+          role: row.dataset.strikeRole,
+          strike: selectedStrike(row),
+          type: row.querySelector('[data-field="optionType"]').value,
+          action: row.querySelector('[data-field="action"]').value,
+          expiration: expirationForAction(row.querySelector('[data-field="action"]').value),
+          quantity: quantities[rows.indexOf(row)]
+        }))
+      });
+    }
+
+    function svgNode(name, attributes = {}, text = "") {
+      const node = document.createElementNS("http://www.w3.org/2000/svg", name);
+      for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
+      if (text) node.textContent = text;
+      return node;
+    }
+
+    async function loadUnderlyingChart() {
+      const requestId = ++underlyingChartRequest;
+      const symbol = symbolInput.value.trim().toUpperCase();
+      underlyingChart.replaceChildren();
+      underlyingChartRefresh.disabled = true;
+      if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol)) {
+        underlyingChartStatus.textContent = "Enter a valid underlying symbol to load its chart.";
+        underlyingChartRefresh.disabled = false;
+        return;
+      }
+      const interval = underlyingChartInterval.value;
+      const intervalLabel = underlyingChartInterval.selectedOptions[0].textContent.toLowerCase();
+      underlyingChartStatus.textContent = `Loading today's ${intervalLabel} bars for ${symbol}…`;
+      try {
+        const response = await fetch(
+          `api/trades/underlying-timesales?${new URLSearchParams({ symbol, interval })}`);
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || `Request failed (${response.status}).`);
+        }
+        if (!Array.isArray(data) || data.some(bar =>
+          typeof bar.time !== "string"
+          || ![bar.open, bar.high, bar.low, bar.close].every(value =>
+            Number.isFinite(Number(value)) && Number(value) > 0)
+          || !Number.isSafeInteger(Number(bar.volume)) || Number(bar.volume) < 0
+          || Number(bar.high) < Number(bar.low)
+          || Number(bar.open) < Number(bar.low) || Number(bar.open) > Number(bar.high)
+          || Number(bar.close) < Number(bar.low) || Number(bar.close) > Number(bar.high))) {
+          throw new Error("Tradier returned invalid intraday price bars.");
+        }
+        if (requestId !== underlyingChartRequest
+            || underlyingChartPanel.hidden
+            || symbol !== symbolInput.value.trim().toUpperCase()) return;
+        if (data.length === 0) {
+          underlyingChartStatus.textContent =
+            `No regular-session ${intervalLabel} bars are available for ${symbol} today yet.`;
+          return;
+        }
+        renderUnderlyingChart(data.slice().sort((first, second) =>
+          first.time.localeCompare(second.time)), symbol);
+        underlyingChartStatus.textContent = "";
+      } catch (error) {
+        if (requestId !== underlyingChartRequest) return;
+        underlyingChartStatus.textContent = `Unable to load the underlying chart: ${error.message}`;
+      } finally {
+        if (requestId === underlyingChartRequest) underlyingChartRefresh.disabled = false;
+      }
+    }
+
+    function renderUnderlyingChart(bars, symbol) {
+      const width = 900;
+      const height = 470;
+      const plotLeft = 70;
+      const plotRight = 575;
+      const profileLeft = 625;
+      const profileWidth = 190;
+      const profileRight = profileLeft + profileWidth;
+      const rightLabel = profileRight + 8;
+      const top = 30;
+      const bottom = 414;
+      const minPrice = Math.min(...bars.map(bar => Number(bar.low)));
+      const maxPrice = Math.max(...bars.map(bar => Number(bar.high)));
+      const pricePadding = Math.max((maxPrice - minPrice) * .10, maxPrice * .001, .01);
+      const yMin = Math.max(0, minPrice - pricePadding);
+      const yMax = maxPrice + pricePadding;
+      const y = price => bottom - (price - yMin) / (yMax - yMin) * (bottom - top);
+      const x = index => bars.length === 1
+        ? (plotLeft + plotRight) / 2
+        : plotLeft + index / (bars.length - 1) * (plotRight - plotLeft);
+      const currency = new Intl.NumberFormat(undefined, {
+        style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2
+      });
+      const volumeFormat = new Intl.NumberFormat(undefined, {
+        notation: "compact", maximumFractionDigits: 1
+      });
+      const priceRange = yMax - yMin;
+      const rawBucketSize = priceRange / 24;
+      const magnitude = 10 ** Math.floor(Math.log10(rawBucketSize));
+      const normalizedBucketSize = rawBucketSize / magnitude;
+      const bucketSize = (normalizedBucketSize <= 1 ? 1
+        : normalizedBucketSize <= 2 ? 2
+          : normalizedBucketSize <= 5 ? 5 : 10) * magnitude;
+      const profile = new Map();
+      for (const bar of bars) {
+        const typicalPrice = (Number(bar.high) + Number(bar.low) + Number(bar.close)) / 3;
+        const level = Math.floor(typicalPrice / bucketSize) * bucketSize;
+        const volumes = profile.get(level) || { up: 0, down: 0 };
+        volumes[Number(bar.close) >= Number(bar.open) ? "up" : "down"] += Number(bar.volume);
+        profile.set(level, volumes);
+      }
+      const profileLevels = [...profile.keys()].sort((left, right) => left - right);
+      const maximumVolume = Math.max(0, ...[...profile.values()]
+        .map(volumes => volumes.up + volumes.down));
+      const candleWidth = Math.max(1, Math.min(6, (plotRight - plotLeft) / bars.length * .7));
+
+      underlyingChart.replaceChildren(
+        svgNode("desc", {},
+          `Today's ${symbol} candlesticks and estimated volume by price. Bar volume is assigned to each bar's typical price, not actual trade-level prices.`)
+      );
+      for (let index = 0; index <= 4; index++) {
+        const price = yMin + priceRange * index / 4;
+        underlyingChart.append(
+          svgNode("line", {
+            x1: plotLeft, x2: profileRight, y1: y(price), y2: y(price),
+            stroke: "#d8ccb1", "stroke-width": 1
+          }),
+          svgNode("text", {
+            x: plotLeft - 8, y: y(price) + 4, "text-anchor": "end",
+            fill: "#5b7185", "font-size": 11
+          }, currency.format(price))
+        );
+      }
+      underlyingChart.append(
+        svgNode("text", {
+          x: profileLeft - 8, y: 18, "text-anchor": "end",
+          fill: "#20364a", "font-size": 11, "font-weight": 700
+        }, "Price"),
+        svgNode("text", {
+          x: rightLabel, y: 18, fill: "#20364a", "font-size": 11, "font-weight": 700
+        }, "Volume")
+      );
+      const latestPrice = Number(bars.at(-1).close);
+      underlyingChart.append(svgNode("line", {
+        x1: plotLeft, x2: profileRight, y1: y(latestPrice), y2: y(latestPrice),
+        stroke: "#4f8fca", "stroke-width": 1.5, "stroke-dasharray": "5 3"
+      }));
+      bars.forEach((bar, index) => {
+        const center = x(index);
+        const open = Number(bar.open);
+        const high = Number(bar.high);
+        const low = Number(bar.low);
+        const close = Number(bar.close);
+        const rising = close >= open;
+        const color = rising ? "#27874d" : "#c44747";
+        const candle = svgNode("g", {
+          "aria-label": `${bar.time}: open ${currency.format(open)}, high ${currency.format(high)}, low ${currency.format(low)}, close ${currency.format(close)}, volume ${Number(bar.volume).toLocaleString()}`
+        });
+        candle.append(
+          svgNode("title", {},
+            `${bar.time}: O ${currency.format(open)} H ${currency.format(high)} L ${currency.format(low)} C ${currency.format(close)} · volume ${Number(bar.volume).toLocaleString()}`),
+          svgNode("line", {
+            x1: center, x2: center, y1: y(high), y2: y(low),
+            stroke: color, "stroke-width": 1
+          }),
+          svgNode("rect", {
+            x: center - candleWidth / 2,
+            y: Math.min(y(open), y(close)),
+            width: candleWidth,
+            height: Math.max(1, Math.abs(y(open) - y(close))),
+            fill: color
+          })
+        );
+        underlyingChart.append(candle);
+      });
+      const timeIndexes = [...new Set([0, Math.floor((bars.length - 1) / 4),
+        Math.floor((bars.length - 1) / 2), Math.floor((bars.length - 1) * 3 / 4),
+        bars.length - 1])];
+      for (const index of timeIndexes) {
+        const timestamp = bars[index].time;
+        const timeLabel = timestamp.includes("T")
+          ? timestamp.split("T").at(-1).slice(0, 5) : timestamp.slice(-5);
+        underlyingChart.append(
+          svgNode("line", {
+            x1: x(index), x2: x(index), y1: top, y2: bottom,
+            stroke: "#e6ddc7", "stroke-width": 1
+          }),
+          svgNode("text", {
+            x: x(index), y: bottom + 21, "text-anchor": "middle",
+            fill: "#5b7185", "font-size": 11
+          }, timeLabel)
+        );
+      }
+      for (const level of profileLevels) {
+        const volumes = profile.get(level);
+        const totalVolume = volumes.up + volumes.down;
+        const centerPrice = level + bucketSize / 2;
+        const rowTop = Math.max(top, y(centerPrice + bucketSize / 2));
+        const rowBottom = Math.min(bottom, y(centerPrice - bucketSize / 2));
+        const barWidth = maximumVolume > 0 ? profileWidth * totalVolume / maximumVolume : 0;
+        const upWidth = maximumVolume > 0 ? profileWidth * volumes.up / maximumVolume : 0;
+        const downWidth = barWidth - upWidth;
+        const barY = rowTop + 1;
+        const barHeight = Math.max(1, rowBottom - rowTop - 2);
+        const bar = svgNode("g", {
+          "aria-label": `${currency.format(centerPrice)}: estimated volume ${totalVolume.toLocaleString()}, ${volumes.up.toLocaleString()} from up candles and ${volumes.down.toLocaleString()} from down candles`
+        });
+        bar.append(
+          svgNode("title", {},
+            `${currency.format(centerPrice)} · estimated volume ${totalVolume.toLocaleString()} (${volumes.up.toLocaleString()} up, ${volumes.down.toLocaleString()} down)`),
+          ...(downWidth > 0 ? [svgNode("rect", {
+            x: profileRight - barWidth, y: barY, width: downWidth, height: barHeight,
+            fill: "#c44747", "fill-opacity": .82
+          })] : []),
+          ...(upWidth > 0 ? [svgNode("rect", {
+            x: profileRight - upWidth, y: barY, width: upWidth, height: barHeight,
+            fill: "#27874d", "fill-opacity": .82
+          })] : [])
+        );
+        underlyingChart.append(
+          svgNode("text", {
+            x: profileLeft - 8, y: (rowTop + rowBottom) / 2 + 4, "text-anchor": "end",
+            fill: "#5b7185", "font-size": 10
+          }, currency.format(centerPrice)),
+          bar,
+          svgNode("text", {
+            x: rightLabel, y: (rowTop + rowBottom) / 2 + 4,
+            fill: "#5b7185", "font-size": 10
+          }, volumeFormat.format(totalVolume))
+        );
+      }
+      underlyingChart.append(
+        svgNode("text", {
+          x: (plotLeft + plotRight) / 2, y: height - 8, "text-anchor": "middle",
+          fill: "#20364a", "font-size": 12
+        }, "Time (market local time)"),
+        svgNode("text", {
+          x: plotLeft + 6, y: y(latestPrice) - 6,
+          fill: "#3b78ad", "font-size": 10, "font-weight": 700
+        }, `Last ${currency.format(latestPrice)}`)
+      );
+      const hoverGroup = svgNode("g", {
+        visibility: "hidden", "pointer-events": "none", "aria-hidden": "true"
+      });
+      const hoverLine = svgNode("line", {
+        y1: top, y2: bottom, stroke: "#526b80", "stroke-width": 1.5,
+        "stroke-dasharray": "4 3"
+      });
+      const hoverTimeBackground = svgNode("rect", {
+        y: top + 4, width: 50, height: 20, rx: 4,
+        fill: "#fff", stroke: "#8ca7bc"
+      });
+      const hoverTimeLabel = svgNode("text", {
+        y: top + 18, "text-anchor": "middle", fill: "#20364a",
+        "font-size": 11, "font-weight": 700
+      });
+      hoverGroup.append(hoverLine, hoverTimeBackground, hoverTimeLabel);
+      underlyingChart.append(hoverGroup);
+      underlyingChart.onpointermove = event => {
+        const bounds = underlyingChart.getBoundingClientRect();
+        const viewX = (event.clientX - bounds.left) * width / bounds.width;
+        if (viewX < plotLeft || viewX > plotRight) {
+          hoverGroup.setAttribute("visibility", "hidden");
+          return;
+        }
+        const index = bars.length === 1 ? 0
+          : Math.round((viewX - plotLeft) / (plotRight - plotLeft) * (bars.length - 1));
+        const cursorX = x(index);
+        const timestamp = bars[index].time;
+        const timeLabel = timestamp.includes("T")
+          ? timestamp.split("T").at(-1).slice(0, 5) : timestamp.slice(-5);
+        const labelWidth = 50;
+        const labelX = Math.max(plotLeft,
+          Math.min(plotRight - labelWidth, cursorX - labelWidth / 2));
+        hoverLine.setAttribute("x1", cursorX);
+        hoverLine.setAttribute("x2", cursorX);
+        hoverTimeBackground.setAttribute("x", labelX);
+        hoverTimeLabel.setAttribute("x", labelX + labelWidth / 2);
+        hoverTimeLabel.textContent = timeLabel;
+        hoverGroup.setAttribute("visibility", "visible");
+      };
+      underlyingChart.onpointerleave = () => {
+        hoverGroup.setAttribute("visibility", "hidden");
+      };
+    }
+
+    function theoreticalOptionPrice(underlying, strike, time, volatility, type) {
+      const intrinsic = type === "CALL"
+        ? Math.max(underlying - strike, 0)
+        : Math.max(strike - underlying, 0);
+      if (time <= 0 || volatility <= 0 || underlying <= 0) return intrinsic;
+      const deviation = volatility * Math.sqrt(time);
+      const d1 = (Math.log(underlying / strike) + deviation * deviation / 2) / deviation;
+      const d2 = d1 - deviation;
+      return type === "CALL"
+        ? underlying * normalCumulativeProbability(d1) - strike * normalCumulativeProbability(d2)
+        : strike * normalCumulativeProbability(-d2) - underlying * normalCumulativeProbability(-d1);
+    }
+
+    function renderProfitLoss(rows, spot, key, marketQuote) {
+      const order = orderType.value;
+      const limitPrice = Number(document.querySelector("#limit-price").value);
+      const quantities = quantitiesForRows(rows);
+      const contracts = positionUnits(quantities);
+      const valuationTime = Date.now();
+      const expirations = rows.map(row =>
+        expirationForAction(row.querySelector('[data-field="action"]').value));
+      const shortExpiration = expirations.slice().sort()[0];
+      const timeSpread = expirations.some(expiration => expiration !== shortExpiration);
+      const shortExpirationTime = new Date(`${shortExpiration}T23:59:59Z`).getTime();
+      const legs = rows.map((row, index) => ({
+        strike: Number(selectedStrike(row)),
+        type: row.querySelector('[data-field="optionType"]').value,
+        action: row.querySelector('[data-field="action"]').value,
+        quantity: quantities[index],
+        expiration: expirations[index],
+        quote: marketQuote?.legs[index],
+        timeToExpiration: Math.max(0, (new Date(
+          `${expirations[index]}T23:59:59Z`
+        ).getTime() - valuationTime) / (365 * 24 * 60 * 60 * 1000))
+      }));
+      const premium = (order === "CREDIT" ? limitPrice : order === "DEBIT" ? -limitPrice : 0)
+        * contracts * 100;
+      const payoff = underlying => premium + legs.reduce((total, leg) => {
+        const intrinsic = leg.type === "CALL"
+          ? Math.max(underlying - leg.strike, 0)
+          : Math.max(leg.strike - underlying, 0);
+        const valueAtShortExpiration = leg.expiration === shortExpiration
+          ? intrinsic
+          : theoreticalOptionPrice(
+            underlying,
+            leg.strike,
+            Math.max(0, (new Date(`${leg.expiration}T23:59:59Z`).getTime()
+              - shortExpirationTime) / (365 * 24 * 60 * 60 * 1000)),
+            Number(leg.quote.impliedVolatility),
+            leg.type
+          );
+        const direction = leg.action === "BUY_TO_OPEN" ? 1 : -1;
+        return total + direction * valueAtShortExpiration * leg.quantity * 100;
+      }, 0);
+      const hasTheoreticalInputs = legs.every(leg =>
+        leg.quote
+        && Number.isFinite(Number(leg.quote.bid))
+        && Number.isFinite(Number(leg.quote.ask))
+        && Number.isFinite(Number(leg.quote.impliedVolatility))
+        && Number(leg.quote.impliedVolatility) > 0
+        && Number(leg.quote.bid) >= 0
+        && Number(leg.quote.ask) >= Number(leg.quote.bid));
+      const theoreticalPayoff = hasTheoreticalInputs
+        ? underlying => legs.reduce((total, leg) => {
+          const direction = leg.action === "BUY_TO_OPEN" ? 1 : -1;
+          const optionValue = theoreticalOptionPrice(
+            underlying,
+            leg.strike,
+            leg.timeToExpiration,
+            Number(leg.quote.impliedVolatility),
+            leg.type
+          );
+          return total + direction * optionValue * leg.quantity * 100;
+        }, premium)
+        : null;
+
+      const strikes = legs.map(leg => leg.strike);
+      const minStrike = Math.min(...strikes, spot);
+      const maxStrike = Math.max(...strikes, spot);
+      const padding = Math.max((maxStrike - minStrike) * 0.15, spot * 0.05, 1);
+      const minUnderlying = Math.max(0, minStrike - padding);
+      const maxUnderlying = maxStrike + padding;
+      const samples = Array.from({ length: 201 }, (_, index) =>
+        minUnderlying + (maxUnderlying - minUnderlying) * index / 200);
+      const values = [...samples, spot, ...strikes].sort((left, right) => left - right)
+        .filter((value, index, all) => index === 0 || value !== all[index - 1])
+        .map(underlying => ({
+          underlying,
+          profitLoss: payoff(underlying),
+          theoreticalProfitLoss: theoreticalPayoff?.(underlying) ?? null
+        }));
+
+      const width = 760;
+      const height = 360;
+      const margin = { top: 18, right: 18, bottom: 54, left: 82 };
+      const plotWidth = width - margin.left - margin.right;
+      const plotHeight = height - margin.top - margin.bottom;
+      const minProfit = Math.min(0, ...values.flatMap(point =>
+        point.theoreticalProfitLoss == null
+          ? [point.profitLoss] : [point.profitLoss, point.theoreticalProfitLoss]));
+      const maxProfit = Math.max(0, ...values.flatMap(point =>
+        point.theoreticalProfitLoss == null
+          ? [point.profitLoss] : [point.profitLoss, point.theoreticalProfitLoss]));
+      const profitPadding = Math.max((maxProfit - minProfit) * 0.1, 1);
+      const yMin = minProfit - profitPadding;
+      const yMax = maxProfit + profitPadding;
+      const x = value => margin.left + (value - minUnderlying) / (maxUnderlying - minUnderlying) * plotWidth;
+      const y = value => margin.top + (yMax - value) / (yMax - yMin) * plotHeight;
+      const currency = new Intl.NumberFormat(undefined, {
+        style: "currency", currency: "USD", maximumFractionDigits: 2
+      });
+      const underlyingRange = maxUnderlying - minUnderlying;
+      const priceSteps = [0.5];
+      for (let magnitude = 1; magnitude / 2 <= underlyingRange * 2; magnitude *= 10) {
+        priceSteps.push(magnitude, magnitude * 2, magnitude * 5);
+      }
+      const priceStep = priceSteps
+        .filter(step => step > 0 && Number.isFinite(step))
+        .sort((left, right) => {
+          const leftTicks = underlyingRange / left;
+          const rightTicks = underlyingRange / right;
+          const leftPenalty = Math.abs(leftTicks - 5) + (leftTicks < 3 || leftTicks > 7 ? 4 : 0);
+          const rightPenalty = Math.abs(rightTicks - 5) + (rightTicks < 3 || rightTicks > 7 ? 4 : 0);
+          return leftPenalty - rightPenalty;
+        })[0];
+      const firstUnderlyingTick = Math.ceil(minUnderlying / priceStep);
+      const lastUnderlyingTick = Math.floor(maxUnderlying / priceStep);
+      const underlyingTicks = Array.from(
+        { length: Math.max(0, lastUnderlyingTick - firstUnderlyingTick + 1) },
+        (_, index) => (firstUnderlyingTick + index) * priceStep
+      );
+      const expirationPath = values.map((point, index) =>
+        `${index === 0 ? "M" : "L"}${x(point.underlying).toFixed(2)},${y(point.profitLoss).toFixed(2)}`
+      ).join(" ");
+      const theoreticalPath = hasTheoreticalInputs
+        ? values.map((point, index) =>
+          `${index === 0 ? "M" : "L"}${x(point.underlying).toFixed(2)},${y(point.theoreticalProfitLoss).toFixed(2)}`
+        ).join(" ")
+        : "";
+      const areaPath = (valueSelector, gain) => {
+        const polygons = [];
+        const addPolygon = (startPrice, startProfit, endPrice, endProfit) => {
+          polygons.push(
+            `M${x(startPrice).toFixed(2)},${y(0).toFixed(2)}`
+            + `L${x(startPrice).toFixed(2)},${y(startProfit).toFixed(2)}`
+            + `L${x(endPrice).toFixed(2)},${y(endProfit).toFixed(2)}`
+            + `L${x(endPrice).toFixed(2)},${y(0).toFixed(2)}Z`
+          );
+        };
+        for (let index = 1; index < values.length; index++) {
+          const first = values[index - 1];
+          const second = values[index];
+          const firstProfit = valueSelector(first);
+          const secondProfit = valueSelector(second);
+          if (firstProfit >= 0 && secondProfit >= 0) {
+            if (gain) addPolygon(first.underlying, firstProfit, second.underlying, secondProfit);
+          } else if (firstProfit <= 0 && secondProfit <= 0) {
+            if (!gain) addPolygon(first.underlying, firstProfit, second.underlying, secondProfit);
+          } else {
+            const crossingPrice = first.underlying
+              + (second.underlying - first.underlying)
+              * -firstProfit / (secondProfit - firstProfit);
+            if (firstProfit > 0) {
+              if (gain) addPolygon(first.underlying, firstProfit, crossingPrice, 0);
+              else addPolygon(crossingPrice, 0, second.underlying, secondProfit);
+            } else {
+              if (!gain) addPolygon(first.underlying, firstProfit, crossingPrice, 0);
+              else addPolygon(crossingPrice, 0, second.underlying, secondProfit);
+            }
+          }
+        }
+        return polygons.join(" ");
+      };
+      const expirationGainArea = areaPath(point => point.profitLoss, true);
+      const expirationLossArea = areaPath(point => point.profitLoss, false);
+      const theoreticalGainArea = hasTheoreticalInputs
+        ? areaPath(point => point.theoreticalProfitLoss, true) : "";
+      const theoreticalLossArea = hasTheoreticalInputs
+        ? areaPath(point => point.theoreticalProfitLoss, false) : "";
+
+      profitLossChart.replaceChildren();
+      profitLossChart.setAttribute("aria-label",
+        `Position ${timeSpread ? "short-expiration" : "expiration"} and theoretical Black-Scholes profit or loss for ${symbolInput.value.trim().toUpperCase()}.`);
+      profitLossChart.append(
+        svgNode("desc", {}, `${timeSpread ? "Short-expiration" : "Expiration"} profit or loss uses the entered net limit price${timeSpread ? " and Black-Scholes value for farther-dated legs at the short expiration" : ""}. The theoretical line uses Black-Scholes, each leg's implied volatility and remaining time, zero interest and dividend rates, and current leg midpoint marks.`)
+      );
+      for (let index = 0; index <= 4; index++) {
+        const profit = yMin + (yMax - yMin) * index / 4;
+        profitLossChart.append(
+          svgNode("line", {
+            x1: margin.left, x2: width - margin.right, y1: y(profit), y2: y(profit),
+            stroke: "#d5e5f2", "stroke-width": 1
+          }),
+          svgNode("text", {
+            x: margin.left - 10, y: y(profit) + 4, "text-anchor": "end",
+            fill: "#5b7185", "font-size": 12
+          }, currency.format(profit))
+        );
+      }
+      for (const underlying of underlyingTicks) {
+        profitLossChart.append(
+          svgNode("line", {
+            x1: x(underlying), x2: x(underlying), y1: margin.top, y2: height - margin.bottom,
+            stroke: "#edf4fa", "stroke-width": 1
+          }),
+          svgNode("text", {
+            x: x(underlying), y: height - margin.bottom + 20, "text-anchor": "middle",
+            fill: "#5b7185", "font-size": 12
+          }, currency.format(underlying))
+        );
+      }
+      profitLossChart.append(
+        svgNode("path", {
+          d: expirationGainArea,
+          fill: "#43a76b", "fill-opacity": 0.16, stroke: "none"
+        }),
+        svgNode("path", {
+          d: expirationLossArea,
+          fill: "#d45e5e", "fill-opacity": 0.16, stroke: "none"
+        }),
+        ...(hasTheoreticalInputs ? [
+          svgNode("path", {
+            d: theoreticalGainArea,
+            fill: "#43a76b", "fill-opacity": 0.07, stroke: "none"
+          }),
+          svgNode("path", {
+            d: theoreticalLossArea,
+            fill: "#d45e5e", "fill-opacity": 0.07, stroke: "none"
+          })
+        ] : []),
+        svgNode("line", {
+          x1: margin.left, x2: width - margin.right, y1: y(0), y2: y(0),
+          stroke: "#526174", "stroke-width": 1.5
+        }),
+        svgNode("line", {
+          x1: x(spot), x2: x(spot), y1: margin.top, y2: height - margin.bottom,
+          stroke: "#7daed3", "stroke-width": 1.5, "stroke-dasharray": "5 4"
+        }),
+        svgNode("path", {
+          d: expirationPath,
+          fill: "none", stroke: "#4f8fca", "stroke-width": 3, "stroke-linejoin": "round"
+        }),
+        ...(hasTheoreticalInputs ? [svgNode("path", {
+          d: theoreticalPath,
+          fill: "none", stroke: "#d17a36", "stroke-width": 2.5, "stroke-dasharray": "7 4",
+          "stroke-linejoin": "round"
+        })] : []),
+        svgNode("text", {
+          x: width / 2, y: height - 8, "text-anchor": "middle", fill: "#20364a", "font-size": 13
+        }, "Underlying price scenario"),
+        svgNode("text", {
+          x: 16, y: height / 2, transform: `rotate(-90 16 ${height / 2})`,
+          "text-anchor": "middle", fill: "#20364a", "font-size": 13
+        }, "Position profit / loss")
+      );
+      const hoverLine = svgNode("line", {
+        y1: margin.top, y2: height - margin.bottom, stroke: "#729fc3",
+        "stroke-width": 1.5, "stroke-dasharray": "4 3", visibility: "hidden",
+        "pointer-events": "none"
+      });
+      const hoverMarker = svgNode("circle", {
+        r: 4, fill: "#fff", stroke: "#1359a5", "stroke-width": 2,
+        visibility: "hidden", "pointer-events": "none"
+      });
+      const theoreticalHoverMarker = svgNode("circle", {
+        r: 4, fill: "#d17a36", stroke: "#fff", "stroke-width": 1.5,
+        visibility: "hidden", "pointer-events": "none"
+      });
+      const hoverLabel = svgNode("text", {
+        y: height - margin.bottom + 20, "text-anchor": "middle", fill: "#20364a",
+        "font-size": 12, "font-weight": 700, visibility: "hidden",
+        "pointer-events": "none"
+      });
+      const hoverTooltip = svgNode("g", {
+        visibility: "hidden", "pointer-events": "none", "aria-hidden": "true"
+      });
+      hoverTooltip.append(
+        svgNode("rect", {
+          width: 226, height: hasTheoreticalInputs ? 48 : 30,
+          rx: 5, fill: "#e4f1fb", stroke: "#8fb8d8"
+        }),
+        svgNode("text", {
+          x: 9, y: 19, fill: "#20364a", "font-size": 11, "font-weight": 700
+        }),
+        svgNode("text", {
+          x: 9, y: 38, fill: "#20364a", "font-size": 11, "font-weight": 700
+        })
+      );
+      const legend = svgNode("g", { "aria-hidden": "true" });
+      legend.append(
+        svgNode("line", {
+          x1: width - margin.right - (hasTheoreticalInputs ? 268 : 155),
+          x2: width - margin.right - (hasTheoreticalInputs ? 244 : 131),
+          y1: margin.top + 8, y2: margin.top + 8,
+          stroke: "#4f8fca", "stroke-width": 3
+        }),
+        svgNode("text", {
+          x: width - margin.right - (hasTheoreticalInputs ? 239 : 126),
+          y: margin.top + 12, fill: "#20364a", "font-size": 11
+        }, timeSpread ? "Short-expiry P/L" : "Expiration P/L")
+      );
+      if (hasTheoreticalInputs) {
+        legend.append(
+          svgNode("line", {
+            x1: width - margin.right - 112, x2: width - margin.right - 88,
+            y1: margin.top + 8, y2: margin.top + 8,
+            stroke: "#d17a36", "stroke-width": 2.5, "stroke-dasharray": "7 4"
+          }),
+          svgNode("text", {
+            x: width - margin.right - 83, y: margin.top + 12,
+            fill: "#20364a", "font-size": 11
+          }, "Theoretical")
+        );
+      }
+      profitLossChart.append(legend, hoverLine, hoverMarker, theoreticalHoverMarker, hoverLabel, hoverTooltip);
+      profitLossChart.onpointermove = event => {
+        const bounds = profitLossChart.getBoundingClientRect();
+        const viewX = (event.clientX - bounds.left) * width / bounds.width;
+        if (viewX < margin.left || viewX > width - margin.right) return;
+        const underlying = minUnderlying
+          + (viewX - margin.left) / plotWidth * (maxUnderlying - minUnderlying);
+        const cursorX = x(underlying);
+        hoverLine.setAttribute("x1", cursorX);
+        hoverLine.setAttribute("x2", cursorX);
+        hoverLine.setAttribute("visibility", "visible");
+        hoverMarker.setAttribute("cx", cursorX);
+        hoverMarker.setAttribute("cy", y(payoff(underlying)));
+        hoverMarker.setAttribute("visibility", "visible");
+        const pointProfit = payoff(underlying);
+        const theoreticalPointProfit = theoreticalPayoff?.(underlying);
+        if (theoreticalPointProfit != null) {
+          theoreticalHoverMarker.setAttribute("cx", cursorX);
+          theoreticalHoverMarker.setAttribute("cy", y(theoreticalPointProfit));
+          theoreticalHoverMarker.setAttribute("visibility", "visible");
+        } else {
+          theoreticalHoverMarker.setAttribute("visibility", "hidden");
+        }
+        hoverLabel.setAttribute("x", Math.max(margin.left + 24,
+          Math.min(width - margin.right - 24, cursorX)));
+        hoverLabel.setAttribute("text-anchor",
+          cursorX < margin.left + 48 ? "start" : cursorX > width - margin.right - 48 ? "end" : "middle");
+        hoverLabel.textContent = currency.format(underlying);
+        hoverLabel.setAttribute("visibility", "visible");
+        const tooltipX = cursorX > width - margin.right - 236 ? cursorX - 236 : cursorX + 10;
+        const pointY = y(pointProfit);
+        const tooltipY = pointY < margin.top + (hasTheoreticalInputs ? 58 : 44)
+          ? pointY + 10 : pointY - (hasTheoreticalInputs ? 58 : 40);
+        hoverTooltip.setAttribute("transform",
+          `translate(${Math.max(margin.left, tooltipX)} ${Math.max(margin.top, tooltipY)})`);
+        hoverTooltip.children[1].textContent =
+          `${timeSpread ? "Short-expiry P/L" : "Expiration P/L"}: ${currency.format(pointProfit)}`;
+        hoverTooltip.children[2].textContent = theoreticalPointProfit == null
+          ? "" : `Theoretical P/L: ${currency.format(theoreticalPointProfit)}`;
+        hoverTooltip.setAttribute("visibility", "visible");
+      };
+      profitLossChart.onpointerleave = () => {
+        hoverLine.setAttribute("visibility", "hidden");
+        hoverMarker.setAttribute("visibility", "hidden");
+        theoreticalHoverMarker.setAttribute("visibility", "hidden");
+        hoverLabel.setAttribute("visibility", "hidden");
+        hoverTooltip.setAttribute("visibility", "hidden");
+      };
+      const premiumLabel = order === "EVEN" ? "even order" : `${order.toLowerCase()} ${currency.format(limitPrice)}/unit`;
+      const theoreticalNote = hasTheoreticalInputs
+        ? " Theoretical P/L is today's Black-Scholes value of the position (per-leg IV and time remaining, zero interest/dividend rates) against the entered net limit price."
+        : " Theoretical P/L is unavailable until current leg quotes include implied volatility.";
+      profitLossStatus.textContent =
+        `${timeSpread ? "P/L at short-leg expiration" : "Expiration P/L"} uses ${premiumLabel} across ${contracts} position unit${contracts === 1 ? "" : "s"}; the option multiplier is 100.${theoreticalNote}`;
+      renderedProfitLossKey = key;
+    }
+
+    function normalCumulativeProbability(value) {
+      const sign = value < 0 ? -1 : 1;
+      const x = Math.abs(value) / Math.sqrt(2);
+      const t = 1 / (1 + 0.3275911 * x);
+      const polynomial = ((((1.061405429 * t - 1.453152027) * t + 1.421413741)
+        * t - 0.284496736) * t + 0.254829592) * t;
+      const errorFunction = sign * (1 - polynomial * Math.exp(-x * x));
+      return (1 + errorFunction) / 2;
+    }
+
+    function probabilityBelow(price, spot, volatility, time) {
+      if (price <= 0) return 0;
+      if (!Number.isFinite(price)) return 1;
+      const denominator = volatility * Math.sqrt(time);
+      return normalCumulativeProbability(
+        (Math.log(price / spot) + volatility * volatility * time / 2) / denominator);
+    }
+
+    function estimateExpirationProbabilities(quote, legs) {
+      const expirations = new Set(legs.map(leg => leg.expiration));
+      if (expirations.size !== 1) {
+        return Promise.resolve({
+          profit: null, maxLoss: null, maxGain: null,
+          note: "Expiration probabilities are unavailable for multi-expiration positions."
+        });
+      }
+      const quoteLegs = quote.legs;
+      if (quoteLegs.length !== legs.length
+          || quoteLegs.some(leg => !Number.isFinite(Number(leg.impliedVolatility))
+            || Number(leg.impliedVolatility) <= 0)) {
+        return Promise.resolve({
+          profit: null, maxLoss: null, maxGain: null,
+          note: "Expiration probabilities require implied volatility for every leg."
+        });
+      }
+      const quantities = legs.map(leg => leg.quantity);
+      const units = positionUnits(quantities);
+      if (!Number.isInteger(units) || units < 1) {
+        return Promise.resolve({
+          profit: null, maxLoss: null, maxGain: null,
+          note: "Expiration probabilities require valid quantities for every leg."
+        });
+      }
+      return fetchUnderlyingPrice(symbolInput.value.trim().toUpperCase()).then(spot => {
+        const nearestExpiration = legs.map(leg => leg.expiration).sort()[0];
+        const expiration = new Date(`${nearestExpiration}T23:59:59`);
+        const time = Math.max((expiration.getTime() - Date.now()) / (365 * 24 * 60 * 60 * 1000), 1 / 365);
+        const volatility = quoteLegs.reduce((total, leg, index) =>
+          total + Number(leg.impliedVolatility) * Math.abs(quantities[index]), 0)
+          / quantities.reduce((total, quantity) => total + Math.abs(quantity), 0);
+        const limitPrice = Number(form.elements.limitPrice.value);
+        const premiumSign = orderType.value === "CREDIT" ? 1 : orderType.value === "DEBIT" ? -1 : 0;
+        const premium = premiumSign * limitPrice * units * 100;
+        const payoff = underlying => premium + legs.reduce((total, leg) => {
+          const intrinsic = leg.optionType === "CALL"
+            ? Math.max(underlying - leg.strike, 0)
+            : Math.max(leg.strike - underlying, 0);
+          return total + (leg.action === "BUY_TO_OPEN" ? 1 : -1)
+            * intrinsic * leg.quantity * 100;
+        }, 0);
+        const strikes = [...new Set(legs.map(leg => leg.strike))]
+          .sort((left, right) => left - right);
+        const breakpoints = [0, ...strikes.filter(strike => strike > 0)];
+        const lastStrike = breakpoints.at(-1);
+        const lastValue = payoff(lastStrike);
+        const tailWidth = Math.max(1, lastStrike * .01);
+        const finalSlope = (payoff(lastStrike + tailWidth) - lastValue) / tailWidth;
+        const breakpointValues = breakpoints.map(payoff);
+        const unboundedMaxGain = finalSlope > 1e-8;
+        const unboundedMaxLoss = finalSlope < -1e-8;
+        const maxGainValue = Math.max(...breakpointValues);
+        const maxLossValue = Math.min(...breakpointValues);
+        const probabilityAtPayoff = payoffValue => {
+          let probability = 0;
+          for (let index = 0; index < breakpoints.length - 1; index++) {
+            const lower = breakpoints[index];
+            const upper = breakpoints[index + 1];
+            const lowerValue = payoff(lower);
+            const upperValue = payoff(upper);
+            const tolerance = Math.max(1, Math.abs(payoffValue)) * 1e-8;
+            if (Math.abs(upperValue - lowerValue) <= tolerance
+                && Math.abs(lowerValue - payoffValue) <= tolerance) {
+              probability += probabilityBelow(upper, spot, volatility, time)
+                - probabilityBelow(lower, spot, volatility, time);
+            }
+          }
+          const tailTolerance = Math.max(1, Math.abs(payoffValue)) * 1e-8;
+          if (Math.abs(finalSlope) <= 1e-8
+              && Math.abs(lastValue - payoffValue) <= tailTolerance) {
+            probability += 1 - probabilityBelow(lastStrike, spot, volatility, time);
+          }
+          return Math.max(0, Math.min(1, probability));
+        };
+        const probabilityBetween = (lower, upper) =>
+          probabilityBelow(upper, spot, volatility, time)
+          - probabilityBelow(lower, spot, volatility, time);
+        let profitProbability = 0;
+        for (let index = 0; index < breakpoints.length - 1; index++) {
+          const lower = breakpoints[index];
+          const upper = breakpoints[index + 1];
+          const lowerValue = breakpointValues[index];
+          const upperValue = breakpointValues[index + 1];
+          if (lowerValue > 0 && upperValue > 0) {
+            profitProbability += probabilityBetween(lower, upper);
+          } else if (lowerValue > 0 && upperValue <= 0) {
+            const root = lower + (upper - lower) * lowerValue / (lowerValue - upperValue);
+            profitProbability += probabilityBetween(lower, root);
+          } else if (lowerValue <= 0 && upperValue > 0) {
+            const root = lower + (upper - lower) * -lowerValue / (upperValue - lowerValue);
+            profitProbability += probabilityBetween(root, upper);
+          }
+        }
+        if (finalSlope > 1e-8) {
+          const tailRoot = lastStrike - lastValue / finalSlope;
+          profitProbability += lastValue > 0
+            ? 1 - probabilityBelow(lastStrike, spot, volatility, time)
+            : 1 - probabilityBelow(Math.max(lastStrike, tailRoot), spot, volatility, time);
+        } else if (Math.abs(finalSlope) <= 1e-8 && lastValue > 0) {
+          profitProbability += 1 - probabilityBelow(lastStrike, spot, volatility, time);
+        } else if (finalSlope < -1e-8 && lastValue > 0) {
+          const tailRoot = lastStrike - lastValue / finalSlope;
+          profitProbability += probabilityBetween(lastStrike, Math.max(lastStrike, tailRoot));
+        }
+        const details = [
+          unboundedMaxGain && "Maximum gain is unbounded, so its probability is unavailable.",
+          unboundedMaxLoss && "Maximum loss is unbounded, so its probability is unavailable."
+        ].filter(Boolean).join(" ");
+        return {
+          profit: Math.max(0, Math.min(1, profitProbability)),
+          maxGain: unboundedMaxGain ? null : probabilityAtPayoff(maxGainValue),
+          maxLoss: unboundedMaxLoss ? null : probabilityAtPayoff(maxLossValue),
+          note: `Lognormal estimate of profit, maximum gain, and maximum loss at expiration using average leg IV; ignores skew, rates, fees, and early exercise.${details ? ` ${details}` : ""}`
+        };
+      }).catch(error => ({
+        profit: null,
+        maxGain: null,
+        maxLoss: null,
+        note: `Expiration probabilities unavailable: ${error.message}`
+      }));
+    }
+
+    async function renderPositionMetrics(quote) {
+      const requestId = ++positionMetricsRequest;
+      quoteResults.hidden = false;
+      const metricsNote = document.querySelector("#position-metrics-note");
+      const profitElement = document.querySelector("#position-profit");
+      const maxLossElement = document.querySelector("#position-max-loss");
+      const maxGainElement = document.querySelector("#position-max-gain");
+      const formatGreek = value => value == null
+        ? "—" : Number(value).toLocaleString(undefined, {
+          signDisplay: "always", maximumFractionDigits: 4
+        });
+      const formatPrice = value => value == null
+        ? "—" : Number(value).toLocaleString("en-US", {
+          style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2
+        });
+      const greekRows = document.querySelector("#leg-greeks");
+      greekRows.replaceChildren();
+      const positionLegs = legsPayload();
+      const symbol = symbolInput.value.trim().toUpperCase();
+      for (const [index, leg] of quote.legs.entries()) {
+        const positionLeg = positionLegs[index];
+        const row = document.createElement("tr");
+        row.classList.add(leg.action === "BUY_TO_OPEN" ? "long-leg" : "short-leg");
+        const friendlyOptionName = `${symbol} $${Number(positionLeg.strike).toLocaleString(undefined, {
+          maximumFractionDigits: 3
+        })} ${positionLeg.optionType === "CALL" ? "Call" : "Put"} (${positionLeg.expiration})`;
+        const values = [
+          friendlyOptionName,
+          leg.action === "BUY_TO_OPEN" ? "Buy" : "Sell",
+          String(leg.quantity),
+          formatPrice(leg.bid),
+          formatPrice(leg.ask),
+          leg.bid == null || leg.ask == null
+            ? "—" : formatPrice((Number(leg.bid) + Number(leg.ask)) / 2),
+          leg.openInterest == null ? "—" : Number(leg.openInterest).toLocaleString(),
+          "Loading…",
+          formatGreek(leg.delta),
+          formatGreek(leg.theta),
+          formatGreek(leg.gamma),
+          formatGreek(leg.vega)
+        ];
+        for (const [valueIndex, value] of values.entries()) {
+          const cell = document.createElement("td");
+          cell.textContent = value;
+          if (valueIndex === 7) {
+            cell.dataset.ivPercentile = "true";
+          }
+          row.append(cell);
+        }
+        greekRows.append(row);
+      }
+      fetchIvPercentile(symbol, requestId, greekRows);
+      const positionRow = document.createElement("tr");
+      positionRow.classList.add("position-total-row");
+      const positionFields = [
+        "Position total", "", "", "", "", "", "", "",
+        formatGreek(quote.positionDelta),
+        formatGreek(quote.positionTheta),
+        formatGreek(quote.positionGamma),
+        formatGreek(quote.positionVega)
+      ];
+      for (const value of positionFields) {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        positionRow.append(cell);
+      }
+      greekRows.append(positionRow);
+      const legRows = [...legContainer.querySelectorAll(".leg-row")];
+      let otmProbabilityError = "";
+      try {
+        const spot = await fetchUnderlyingPrice(symbol);
+        if (requestId !== positionMetricsRequest || quote !== activePositionQuote) return;
+        for (const [index, leg] of quote.legs.entries()) {
+          const positionLeg = positionLegs[index];
+          const cell = legRows[index]?.querySelector('[data-field="otm-probability"]');
+          const volatility = Number(leg.impliedVolatility);
+          const strike = Number(positionLeg.strike);
+          if (!cell || !Number.isFinite(volatility) || volatility <= 0
+              || !Number.isFinite(strike) || strike <= 0) continue;
+          const expiration = new Date(`${positionLeg.expiration}T23:59:59`);
+          const time = Math.max((expiration.getTime() - Date.now())
+            / (365 * 24 * 60 * 60 * 1000), 1 / 365);
+          const belowStrike = probabilityBelow(strike, spot, volatility, time);
+          const probability = positionLeg.optionType === "CALL" ? belowStrike : 1 - belowStrike;
+          cell.textContent = `${(probability * 100).toFixed(1)}%`;
+          cell.title = "Lognormal estimate of expiring out of the money using this leg's implied volatility.";
+        }
+      } catch (error) {
+        otmProbabilityError =
+          `Per-leg out-of-the-money probabilities unavailable: ${error.message}`;
+      }
+      const result = await estimateExpirationProbabilities(quote, legsPayload());
+      if (requestId !== positionMetricsRequest || quote !== activePositionQuote) return;
+      profitElement.textContent = result.profit == null
+        ? "—" : `${(result.profit * 100).toFixed(1)}%`;
+      maxLossElement.textContent = result.maxLoss == null
+        ? "—" : `${(result.maxLoss * 100).toFixed(1)}%`;
+      maxGainElement.textContent = result.maxGain == null
+        ? "—" : `${(result.maxGain * 100).toFixed(1)}%`;
+      metricsNote.textContent = [result.note, otmProbabilityError].filter(Boolean).join(" ");
+    }
+
+    async function fetchIvPercentile(symbol, requestId, greekRows) {
+      try {
+        const response = await fetch(`api/trades/iv-percentile?${new URLSearchParams({ symbol })}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || `Request failed (${response.status}).`);
+        if (requestId !== positionMetricsRequest || quoteRowsAreStale(symbol, greekRows)) return;
+        const display = data.percentile == null
+          ? `Collecting: ${data.observationCount}/${data.requiredObservations}`
+          : `${Number(data.percentile).toFixed(0)}%${data.complete ? "" : "*"}`;
+        for (const cell of greekRows.querySelectorAll("[data-iv-percentile]")) {
+          cell.textContent = display;
+        }
+      } catch (error) {
+        if (requestId !== positionMetricsRequest || quoteRowsAreStale(symbol, greekRows)) return;
+        for (const cell of greekRows.querySelectorAll("[data-iv-percentile]")) {
+          cell.textContent = "Unavailable";
+        }
+      } finally {
+        if (requestId === positionMetricsRequest && !quoteRowsAreStale(symbol, greekRows)) {
+          clearTimeout(ivPercentileRefreshTimer);
+          ivPercentileRefreshTimer = setTimeout(
+            () => fetchIvPercentile(symbol, requestId, greekRows), 60_000);
+        }
+      }
+    }
+
+    function quoteRowsAreStale(symbol, greekRows) {
+      return symbol !== symbolInput.value.trim().toUpperCase()
+        || !activePositionQuote
+        || !greekRows.isConnected;
+    }
+
+    async function updateProfitLossGraph() {
+      const rows = [...legContainer.querySelectorAll(".leg-row")];
+      const symbol = symbolInput.value.trim().toUpperCase();
+      const title = document.querySelector("#profit-loss-title");
+      const expirations = rows.map(row =>
+        expirationForAction(row.querySelector('[data-field="action"]').value));
+      const shortExpiration = expirations.slice().sort()[0];
+      const timeSpread = expirations.some(expiration => expiration !== shortExpiration);
+      title.textContent = timeSpread ? "P/L at short-leg expiration" : "P/L at expiration";
+      const selectionsReady = rows.length > 0
+        && /^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol)
+        && rows.every(row => loadedSymbolForRow(row) === symbol
+          && Number(selectedStrike(row)) > 0)
+        && strikeOrderValid(rows);
+      if (!selectionsReady) {
+        profitLossRequest++;
+        renderedProfitLossKey = "";
+        profitLossPanel.hidden = false;
+        profitLossChart.replaceChildren();
+        profitLossStatus.textContent = "Select a symbol, expiration, and strikes to view the estimated expiration P/L.";
+        return;
+      }
+      profitLossPanel.hidden = false;
+      if (rows.some(row => !row.querySelector('[data-field="quantity"]').checkValidity())) {
+        profitLossRequest++;
+        renderedProfitLossKey = "";
+        profitLossChart.replaceChildren();
+        profitLossStatus.textContent = "Enter a valid quantity for every option leg.";
+        return;
+      }
+      if (timeSpread) {
+        const quoteLegs = activePositionQuote?.legs;
+        const validVolatilityForFarLegs = Array.isArray(quoteLegs)
+          && rows.every((row, index) => expirations[index] === shortExpiration
+            || (Number.isFinite(Number(quoteLegs[index]?.impliedVolatility))
+              && Number(quoteLegs[index].impliedVolatility) > 0));
+        if (!validVolatilityForFarLegs) {
+          profitLossRequest++;
+          renderedProfitLossKey = "";
+          profitLossChart.replaceChildren();
+          profitLossStatus.textContent = Array.isArray(quoteLegs)
+            ? "P/L at short-leg expiration needs implied volatility for every farther-dated leg."
+            : "Waiting for quotes to value farther-dated legs at short-leg expiration.";
+          return;
+        }
+      }
+      const priceField = document.querySelector("#limit-price");
+      const limitPrice = Number(priceField.value);
+      if (!priceField.checkValidity() || !Number.isFinite(limitPrice)
+          || (orderType.value !== "EVEN" && limitPrice <= 0)) {
+        profitLossRequest++;
+        renderedProfitLossKey = "";
+        profitLossChart.replaceChildren();
+        profitLossStatus.textContent = "Enter a valid limit price to calculate expiration P/L.";
+        return;
+      }
+      const key = profitLossKey(rows);
+      if (key === renderedProfitLossKey) return;
+      const requestId = ++profitLossRequest;
+      profitLossStatus.textContent = "Loading underlying quote for the expiration graph…";
+      try {
+        const spot = await fetchUnderlyingPrice(symbol);
+        if (requestId !== profitLossRequest) return;
+        if (key !== profitLossKey(rows)) {
+          updateProfitLossGraph();
+          return;
+        }
+        renderProfitLoss(rows, spot, key, activePositionQuote);
+      } catch (error) {
+        if (requestId !== profitLossRequest) return;
+        profitLossChart.replaceChildren();
+        profitLossStatus.textContent = `Unable to calculate expiration P/L: ${error.message}`;
+      }
+    }
+
+    function clearQuote() {
+      positionQuoteRequest++;
+      positionQuoteLoading = false;
+      positionQuoteReady = false;
+      clearTimeout(positionQuoteTimer);
+      positionQuoteTimer = null;
+      clearTimeout(ivPercentileRefreshTimer);
+      ivPercentileRefreshTimer = null;
+      activePositionQuote = null;
+      positionMetricsRequest++;
+      quoteResults.hidden = true;
+      document.querySelector("#position-profit").textContent = "—";
+      document.querySelector("#position-max-loss").textContent = "—";
+      document.querySelector("#position-max-gain").textContent = "—";
+      legContainer.querySelectorAll('[data-field="otm-probability"]').forEach(cell => {
+        cell.textContent = "—";
+        cell.removeAttribute("title");
+      });
+      document.querySelector("#position-metrics-note").textContent = "";
+      renderEmptyGreekTable();
+      positionPriceSlider.disabled = true;
+      positionPriceSlider.min = "0";
+      positionPriceSlider.max = "0";
+      document.querySelector("#position-price-bid").textContent = "Bid: —";
+      document.querySelector("#position-price-mid").textContent = "Mid: —";
+      document.querySelector("#position-price-ask").textContent = "Ask: —";
+      document.querySelector("#position-price-help").textContent =
+        "The price slider enables after position quotes load.";
+    }
+
+    function updateQuoteAvailability() {
+      const rows = [...legContainer.querySelectorAll(".leg-row")];
+      const expirationFields = [...document.querySelectorAll("[data-position-expiration]")];
+      positionQuoteReady = rows.length > 0
+        && symbolInput.checkValidity()
+        && expirationFields.every(field => field.value
+          && new Date(`${field.value}T00:00:00`) >= new Date(new Date().toDateString()))
+        && strikeOrderValid(rows)
+        && rows.every(row => {
+          const strikeValue = selectedStrike(row);
+          const strike = Number(strikeValue);
+          return strikeValue && loadedSymbolForRow(row) === symbolInput.value.trim().toUpperCase()
+            && Number.isFinite(strike) && strike > 0
+            && row.querySelector('[data-field="quantity"]').checkValidity();
+        });
+      updateProfitLossGraph();
+    }
+
+    function clearPreview() {
+      activePreviewId = null;
+      review.hidden = true;
+    }
+
+    function updateOrderControls() {
+      const singleLeg = spreadSelect.value === "SINGLE_LEG";
+      const evenOption = orderType.querySelector('option[value="EVEN"]');
+      evenOption.hidden = singleLeg;
+      orderType.disabled = singleLeg;
+      priceLabel.firstChild.textContent = singleLeg
+        ? "Limit price (per share)" : "Net Limit Price (per ratio unit)";
+      if (singleLeg && orderType.value === "EVEN") orderType.value = "DEBIT";
+      if (singleLeg) {
+        const action = legContainer.querySelector('[data-field="action"]')?.value;
+        const expected = action === "SELL_TO_OPEN" ? "CREDIT" : "DEBIT";
+        if (orderType.value !== expected) orderType.value = expected;
+      } else if (isVerticalSpread()) {
+        orderType.value = verticalDebitDefault() ? "DEBIT" : "CREDIT";
+      } else if (["CALENDAR", "DIAGONAL", "DOUBLE_DIAGONAL"].includes(spreadSelect.value)) {
+        orderType.value = "DEBIT";
+      } else if (["IRON_CONDOR", "IRON_BUTTERFLY"].includes(spreadSelect.value)) {
+        orderType.value = "CREDIT";
+      }
+      updateProfitLossGraph();
+    }
+
+    spreadSelect.addEventListener("change", () => {
+      clearPreview();
+      renderLegs();
+      updateOrderControls();
+    });
+    document.querySelector("#position-controls").addEventListener("input", event => {
+      if (!event.target.matches("#position-multiplier")) return;
+      const multiplierInput = event.target;
+      if (!multiplierInput.checkValidity()) return;
+      positionMultiplier = Number(multiplierInput.value);
+      legContainer.querySelectorAll('[data-field="quantity"]').forEach(input => {
+        input.value = String(Number(input.dataset.base) * positionMultiplier);
+      });
+    });
+    legContainer.addEventListener("input", event => {
+      if (!event.target.matches('[data-field="quantity"]')) return;
+      event.target.dataset.base = String(Number(event.target.value) / positionMultiplier);
+    });
+    const underlyingQuoteElement = document.querySelector("#underlying-quote");
+    let underlyingQuoteRequest = 0;
+    async function loadUnderlyingQuote() {
+      const symbol = symbolInput.value.trim().toUpperCase();
+      const requestId = ++underlyingQuoteRequest;
+      if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol)) {
+        underlyingQuoteElement.hidden = true;
+        return;
+      }
+      const money = value => value == null ? "—" : `$${Number(value).toFixed(2)}`;
+      try {
+        const response = await fetch(`api/trades/underlying-quote?${new URLSearchParams({ symbol })}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || `Request failed (${response.status}).`);
+        if (requestId !== underlyingQuoteRequest) return;
+        underlyingQuoteElement.replaceChildren();
+        const parts = [["Bid", data.bid], ["Ask", data.ask], ["Last", data.last]];
+        const name = document.createElement("strong");
+        name.className = "uq-symbol";
+        name.textContent = symbol;
+        underlyingQuoteElement.append(name);
+        for (const [label, value] of parts) {
+          const item = document.createElement("span");
+          item.className = "uq-item";
+          const caption = document.createElement("span");
+          caption.className = "uq-label";
+          caption.textContent = label;
+          const number = document.createElement("span");
+          number.className = "uq-value";
+          number.textContent = money(value);
+          item.append(caption, number);
+          underlyingQuoteElement.append(item);
+        }
+      } catch (error) {
+        if (requestId !== underlyingQuoteRequest) return;
+        underlyingQuoteElement.textContent = `${symbol} quote unavailable: ${error.message}`;
+      }
+      underlyingQuoteElement.hidden = false;
+    }
+    symbolInput.addEventListener("input", searchSymbolsAsTyped);
+    symbolInput.addEventListener("input", () => {
+      if (!underlyingChartPanel.hidden) {
+        underlyingChartRequest++;
+        underlyingChart.replaceChildren();
+        underlyingChartStatus.textContent = "Select a symbol to refresh the underlying chart.";
+      }
+    });
+    form.addEventListener("change", event => {
+      if (event.target.matches('[name="symbol"]')) loadUnderlyingQuote();
+      if (event.target.matches('[name="symbol"]') && !underlyingChartPanel.hidden) {
+        loadUnderlyingChart();
+      }
+    });
+    underlyingChartToggle.addEventListener("click", () => {
+      const show = underlyingChartPanel.hidden;
+      underlyingChartPanel.hidden = !show;
+      underlyingChartToggle.setAttribute("aria-expanded", String(show));
+      underlyingChartToggle.textContent = show
+        ? "Hide Underlying Chart" : "Show Underlying Chart";
+      if (show) loadUnderlyingChart();
+      else underlyingChartRequest++;
+    });
+    underlyingChartRefresh.addEventListener("click", () => {
+      if (!underlyingChartPanel.hidden) loadUnderlyingChart();
+    });
+    underlyingChartInterval.addEventListener("change", () => {
+      if (!underlyingChartPanel.hidden) loadUnderlyingChart();
+    });
+    form.addEventListener("input", clearPreview);
+    function handleFormEdit(event) {
+      if (event.target.matches("#position-price-slider")) return;
+      const quantityEdited = event.target.matches('[data-field="quantity"], #position-multiplier');
+      if (event.target.matches("#limit-price")) {
+        syncPositionPriceControl(event.target.value);
+        updateLegSummaries();
+        updateQuoteAvailability();
+        if (activePositionQuote) renderPositionMetrics(activePositionQuote);
+        return;
+      }
+      clearQuote();
+      updateLegSummaries();
+      updateQuoteAvailability();
+      if (quantityEdited) schedulePositionQuote();
+    }
+    form.addEventListener("input", handleFormEdit);
+    form.addEventListener("change", handleFormEdit);
+    form.addEventListener("change", async event => {
+      if (event.target.matches('[name="symbol"], [data-position-expiration], [data-field="optionType"], [data-field="action"]')) {
+        if (event.target.matches('[name="symbol"]')) await refreshExpirationOptions();
+        else if (event.target.matches('[data-position-expiration="SELL_TO_OPEN"]')) await refreshExpirationOptions();
+        else {
+          if (event.target.matches("[data-position-expiration]")) {
+            expirationSelections.set(event.target.dataset.positionExpiration, event.target.value);
+          }
+          if (event.target.matches('[data-field="optionType"]')
+              && ["BUTTERFLY", "CALENDAR", "DIAGONAL"].includes(spreadSelect.value)) {
+            const selectedType = event.target.value;
+            legContainer.querySelectorAll(".leg-row").forEach(row => {
+              const field = row.querySelector('[data-field="optionType"]');
+              field.value = selectedType;
+              syncChoiceButtons(row, "optionType");
+            });
+          }
+          await refreshStrikeOptions(event.target.matches("[data-position-expiration]"));
+          schedulePositionQuote();
+        }
+      } else if (event.target.matches('[data-field="strike"]')) {
+        if (spreadSelect.value === "BUTTERFLY") defaultMatchingWidth(event.target);
+        await refreshStrikeOptions();
+        updateLegSummaries();
+        updateQuoteAvailability();
+        schedulePositionQuote();
+      }
+    });
+
+    legContainer.addEventListener("click", event => {
+      const button = event.target.closest?.("button[data-choice-field]");
+      if (!button) return;
+      const row = button.closest(".leg-row");
+      const fieldName = button.dataset.choiceField;
+      const field = row?.querySelector(`[data-field="${fieldName}"]`);
+      if (!field || field.value === button.dataset.choiceValue) return;
+      field.value = button.dataset.choiceValue;
+      syncChoiceButtons(row, fieldName);
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    legContainer.addEventListener("change", event => {
+      if (event.target.matches('[data-field="strike"]')) {
+        setStrikeOptionLabels(event.target, false);
+      }
+      if (event.target.matches('[data-field="action"]')) updateOrderControls();
+    });
+    const setStrikeOptionLabels = (select, showAtm) => {
+      for (const option of select.options) {
+        if (option.dataset.atm === "true") {
+          option.textContent = showAtm ? `${option.value} — ATM` : option.value;
+        }
+      }
+    };
+    legContainer.addEventListener("pointerdown", event => {
+      const select = event.target.closest?.('select[data-field="strike"]');
+      if (select) setStrikeOptionLabels(select, true);
+    });
+    legContainer.addEventListener("keydown", event => {
+      const select = event.target.closest?.('select[data-field="strike"]');
+      if (select && ["ArrowDown", "ArrowUp", "Enter", " ", "F4"].includes(event.key)) {
+        setStrikeOptionLabels(select, true);
+      }
+    });
+    legContainer.addEventListener("focusout", event => {
+      if (event.target.matches('[data-field="strike"]')) {
+        setStrikeOptionLabels(event.target, false);
+      }
+    });
+    orderType.addEventListener("change", event => {
+      clearQuote();
+      const price = document.querySelector("#limit-price");
+      if (event.target.value === "EVEN") price.value = "0.00";
+      else if (Number(price.value) === 0) price.value = "1.00";
+      updateQuoteAvailability();
+      schedulePositionQuote();
+    });
+
+    function legsPayload() {
+      const rows = [...legContainer.querySelectorAll(".leg-row")];
+      const quantities = quantitiesForRows(rows);
+      return rows.map((row, index) => ({
+        optionType: row.querySelector('[data-field="optionType"]').value,
+        expiration: expirationForAction(row.querySelector('[data-field="action"]').value),
+        strike: Number(selectedStrike(row)),
+        action: row.querySelector('[data-field="action"]').value,
+        quantity: quantities[index]
+      }));
+    }
+
+    function quotePayload() {
+      return {
+        symbol: form.elements.symbol.value.trim().toUpperCase(),
+        spreadType: isVerticalSpread() ? "VERTICAL" : spreadSelect.value,
+        orderType: form.elements.orderType.value,
+        legs: legsPayload()
+      };
+    }
+
+    function schedulePositionQuote() {
+      clearTimeout(positionQuoteTimer);
+      if (!positionQuoteReady || positionQuoteLoading || orderType.value === "EVEN") return;
+      positionQuoteTimer = setTimeout(() => {
+        positionQuoteTimer = null;
+        loadPositionQuote();
+      }, 350);
+    }
+
+    function orderPayload() {
+      return { ...quotePayload(), limitPrice: Number(form.elements.limitPrice.value) };
+    }
+
+    async function requestJson(url, body) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || `Request failed (${response.status}).`);
+      return data;
+    }
+
+    async function loadPositionQuote() {
+      if (!positionQuoteReady || positionQuoteLoading || orderType.value === "EVEN") return;
+      clearPreview();
+      clearQuote();
+      const requestId = ++positionQuoteRequest;
+      const payload = quotePayload();
+      const payloadKey = JSON.stringify(payload);
+      positionQuoteLoading = true;
+      underlyingPriceRequests.delete(payload.symbol);
+      status.dataset.error = "false";
+      status.textContent = "Refreshing position quotes for the selected legs…";
+      try {
+        const result = await requestJson("api/trades/quote", payload);
+        if (requestId !== positionQuoteRequest || payloadKey !== JSON.stringify(quotePayload())) return;
+        activePositionQuote = result;
+        const bidValue = Number(result.bid);
+        const askValue = Number(result.ask);
+        const midValue = (bidValue + askValue) / 2;
+        const spreadWidth = askValue - bidValue;
+        const sliderMin = Math.max(0, bidValue - spreadWidth / 2);
+        const sliderMax = askValue + spreadWidth / 2;
+        const currency = value => `$${value.toFixed(2)}`;
+        positionPriceSlider.min = String(sliderMin);
+        positionPriceSlider.max = String(sliderMax);
+        positionPriceSlider.step = "0.01";
+        positionPriceSlider.disabled = false;
+        document.querySelector("#position-price-help").textContent =
+          "The range extends 50% of the bid/ask spread beyond each side.";
+        document.querySelector("#position-price-bid").textContent = `Bid: ${currency(bidValue)}`;
+        document.querySelector("#position-price-mid").textContent = `Mid: ${currency(midValue)}`;
+        document.querySelector("#position-price-ask").textContent = `Ask: ${currency(askValue)}`;
+        const sliderRange = sliderMax - sliderMin || 1;
+        document.querySelector("#position-price-bid").style.setProperty(
+          "--price-position", `${(bidValue - sliderMin) / sliderRange * 100}%`);
+        document.querySelector("#position-price-mid").style.setProperty(
+          "--price-position", `${(midValue - sliderMin) / sliderRange * 100}%`);
+        document.querySelector("#position-price-ask").style.setProperty(
+          "--price-position", `${(askValue - sliderMin) / sliderRange * 100}%`);
+        await renderPositionMetrics(result);
+        if (requestId !== positionQuoteRequest || payloadKey !== JSON.stringify(quotePayload())) return;
+        const useBid = orderType.value === "DEBIT";
+        usePositionPrice(useBid ? bidValue : askValue);
+        status.textContent =
+          `Position quotes refreshed; limit set to the ${useBid ? "bid" : "ask"}.`;
+      } catch (error) {
+        if (requestId !== positionQuoteRequest) return;
+        status.dataset.error = "true";
+        status.textContent = `Unable to refresh position quotes: ${error.message}`;
+      } finally {
+        if (requestId === positionQuoteRequest) {
+          positionQuoteLoading = false;
+          updateQuoteAvailability();
+        }
+      }
+    }
+
+    function syncPositionPriceControl(value) {
+      const price = Number(value);
+      if (!Number.isFinite(price)) {
+        positionPriceSelected.textContent = "—";
+        return;
+      }
+      positionPriceSelected.textContent = `$${price.toFixed(2)}`;
+      const min = Number(positionPriceSlider.min);
+      const max = Number(positionPriceSlider.max);
+      if (Number.isFinite(min) && Number.isFinite(max)) {
+        positionPriceSlider.value = String(Math.min(max, Math.max(min, price)));
+      }
+    }
+
+    function usePositionPrice(value) {
+      form.elements.limitPrice.value = Number(value).toFixed(2);
+      syncPositionPriceControl(value);
+      clearPreview();
+      updateProfitLossGraph();
+      if (activePositionQuote) renderPositionMetrics(activePositionQuote);
+    }
+
+    positionPriceSlider.addEventListener("input", event => usePositionPrice(event.target.value));
+
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      clearPreview();
+      status.dataset.error = "false";
+      status.textContent = "Requesting Tradier sandbox preview…";
+      const button = document.querySelector("#preview-button");
+      button.disabled = true;
+      try {
+        const result = await requestJson("api/trades/preview", orderPayload());
+        activePreviewId = result.previewId;
+        document.querySelector("#broker-preview").textContent =
+          JSON.stringify(result.brokerPreview, null, 2);
+        review.hidden = false;
+        status.textContent = "Preview ready. No order has been submitted.";
+      } catch (error) {
+        status.dataset.error = "true";
+        status.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    document.querySelector("#confirm-button").addEventListener("click", async event => {
+      if (!activePreviewId) return;
+      const previewId = activePreviewId;
+      if (!window.confirm("Submit this reviewed order to the Tradier SANDBOX for paper trading? No live orders are supported.")) return;
+      activePreviewId = null;
+      event.currentTarget.disabled = true;
+      status.dataset.error = "false";
+      status.textContent = "Submitting confirmed paper order…";
+      try {
+        const result = await requestJson("api/trades/submit", {
+          previewId,
+          environment: document.querySelector("#environment").value,
+          confirmed: true
+        });
+        review.hidden = true;
+        status.textContent = `Sandbox order submitted:\n${JSON.stringify(result, null, 2)}`;
+      } catch (error) {
+        status.dataset.error = "true";
+        status.textContent = error.message;
+      } finally {
+        event.currentTarget.disabled = false;
+      }
+    });
+
+    document.querySelector("#cancel-button").addEventListener("click", () => {
+      clearPreview();
+      status.textContent = "Preview cancelled. No order was submitted.";
+    });
+
+    renderLegs();
+    updateOrderControls();
+    function focusSymbolInput() {
+      if (document.activeElement !== symbolInput) {
+        symbolInput.focus({ preventScroll: true });
+      }
+      symbolInput.classList.add("symbol-input-focused");
+      symbolInput.setSelectionRange(symbolInput.value.length, symbolInput.value.length);
+    }
+    symbolInput.addEventListener("blur", () => {
+      symbolInput.classList.remove("symbol-input-focused");
+    });
+    window.addEventListener("pageshow", () => requestAnimationFrame(focusSymbolInput));
+    window.addEventListener("load", () => requestAnimationFrame(focusSymbolInput), { once: true });
+    window.addEventListener("focus", () => {
+      if (document.activeElement === document.body) requestAnimationFrame(focusSymbolInput);
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && document.activeElement === document.body) {
+        requestAnimationFrame(focusSymbolInput);
+      }
+    });
+    focusSymbolInput();
+  </script>
+</body>
+</html>
