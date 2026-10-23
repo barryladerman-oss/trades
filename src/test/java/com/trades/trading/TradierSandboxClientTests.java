@@ -190,8 +190,9 @@ class TradierSandboxClientTests {
                         org.hamcrest.Matchers.containsString("class=multileg"),
                         org.hamcrest.Matchers.containsString(firstOption),
                         org.hamcrest.Matchers.containsString(secondOption),
-                        org.hamcrest.Matchers.containsString("side%5B%5D=buy_to_open"),
-                        org.hamcrest.Matchers.containsString("quantity%5B%5D=1"),
+                        org.hamcrest.Matchers.containsString("side%5B0%5D=buy_to_open"),
+                        org.hamcrest.Matchers.containsString("side%5B1%5D=sell_to_open"),
+                        org.hamcrest.Matchers.containsString("quantity%5B1%5D=1"),
                         org.hamcrest.Matchers.containsString("preview=true")))))
                 .andRespond(withSuccess("{\"order\":{\"id\":\"preview-id\"}}",
                         org.springframework.http.MediaType.APPLICATION_JSON));
@@ -216,7 +217,8 @@ class TradierSandboxClientTests {
                 .andExpect(method(Objects.requireNonNull(HttpMethod.POST)))
                 .andExpect(content().string(Objects.requireNonNull(org.hamcrest.Matchers.allOf(
                         org.hamcrest.Matchers.containsString("class=option"),
-                        org.hamcrest.Matchers.containsString("symbol=" + optionSymbol),
+                        org.hamcrest.Matchers.containsString("symbol=SPY&"),
+                        org.hamcrest.Matchers.containsString("option_symbol=" + optionSymbol),
                         org.hamcrest.Matchers.containsString("side=buy_to_open"),
                         org.hamcrest.Matchers.containsString("quantity=1"),
                         org.hamcrest.Matchers.containsString("type=limit"),

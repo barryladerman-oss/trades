@@ -25,5 +25,17 @@ public interface TradierGateway {
 
     JsonNode preview(TradeRequest trade);
 
+    default JsonNode accountOrders() {
+        throw new UnsupportedOperationException("Account order listing is not supported.");
+    }
+
+    default JsonNode orderStatus(String orderId) {
+        throw new UnsupportedOperationException("Order status lookup is not supported.");
+    }
+
+    default java.util.Map<String, List<String>> previewRequest(TradeRequest trade) {
+        return java.util.Map.of();
+    }
+
     JsonNode submit(TradeRequest trade);
 }

@@ -8,6 +8,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -16,7 +18,8 @@ import static org.mockito.Mockito.when;
 class TradePreviewServiceTests {
     private final TradeValidator validator = new TradeValidator();
     private final TradierGateway gateway = mock(TradierGateway.class);
-    private final TradePreviewService service = new TradePreviewService(validator, gateway);
+    private final TradeOrderService orders = mock(TradeOrderService.class);
+    private final TradePreviewService service = new TradePreviewService(validator, gateway, orders);
     private final TradeRequest trade = new TradeRequest("SPY", SpreadType.SINGLE_LEG,
             List.of(new OptionLeg(OptionType.CALL, LocalDate.now().plusDays(30),
                     new BigDecimal("500"), OpeningAction.BUY_TO_OPEN, 1)),
@@ -32,6 +35,7 @@ class TradePreviewServiceTests {
         assertThrows(IllegalArgumentException.class, () -> service.submit(previewId, "SANDBOX", false));
 
         service.submit(previewId, "SANDBOX", true);
+        verify(orders).record(eq(trade), eq("SANDBOX"), any());
         assertThrows(IllegalArgumentException.class, () -> service.submit(previewId, "SANDBOX", true));
         verify(gateway).submit(trade);
     }

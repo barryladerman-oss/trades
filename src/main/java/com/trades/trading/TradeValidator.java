@@ -168,9 +168,9 @@ public class TradeValidator {
         OptionLeg longCall = calls.stream().filter(leg -> leg.action() == OpeningAction.BUY_TO_OPEN)
                 .findFirst().orElseThrow();
         require(longPut.strike().compareTo(shortPut.strike()) < 0
-                        && shortPut.strike().compareTo(shortCall.strike()) < 0
+                        && shortPut.strike().compareTo(shortCall.strike()) <= 0
                         && shortCall.strike().compareTo(longCall.strike()) < 0,
-                "A double diagonal requires long put, short put, short call, then long call strikes.");
+                "A double diagonal requires long put, short put, short call (same strike allowed), then long call strikes.");
     }
 
     private void validateDiagonalPair(List<OptionLeg> pair, String type) {

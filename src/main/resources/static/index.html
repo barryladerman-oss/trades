@@ -16,6 +16,13 @@
     .page-header { padding-right: 225px; }
     h1 { font-size: 1.35rem; margin: 0 0 .15rem; }
     .page-header p { margin: .2rem 0; }
+    .preview-tabs { display: flex; gap: .3rem; margin: .5rem 0 0; }
+    #orders-table button.sort { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: inherit; cursor: pointer; }
+    #orders-table th[aria-sort="ascending"] button::after { content: " ▲"; }
+    #orders-table th[aria-sort="descending"] button::after { content: " ▼"; }
+    #orders-panel .actions label { display: inline-flex; align-items: center; gap: .3rem; margin-right: .6rem; }
+    .preview-tabs button { padding: .3rem .8rem; border: 1px solid var(--blue-border); border-bottom: 0; border-radius: 6px 6px 0 0; background: #fff; cursor: pointer; }
+    .preview-tabs button.active { background: var(--blue-soft); font-weight: 700; }
     fieldset, .review { background: var(--blue-surface); border: 1px solid var(--blue-border); border-radius: 8px; padding: .75rem; margin: .7rem 0; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .9rem; }
     .trade-fields { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); max-width: 48rem; }
@@ -142,7 +149,33 @@
     <div>
       <h1>Options Order Entry</h1>
     </div>
+    <button type="button" id="show-orders-button" aria-controls="orders-panel" aria-expanded="false">Show All Orders</button>
   </header>
+
+  <section class="review" id="orders-panel" hidden>
+    <h2>All Orders</h2>
+    <div class="actions">
+      <label>From <input type="date" id="orders-from"></label>
+      <label>To <input type="date" id="orders-to"></label>
+      <button type="button" id="orders-refresh">Refresh</button>
+    </div>
+    <p id="orders-status" role="status"></p>
+    <table class="greek-table" id="orders-table">
+      <thead>
+        <tr>
+          <th><button type="button" class="sort" data-sort="submittedAt">Submitted</button></th>
+          <th><button type="button" class="sort" data-sort="symbol">Symbol</button></th>
+          <th><button type="button" class="sort" data-sort="spreadType">Spread</button></th>
+          <th><button type="button" class="sort" data-sort="orderType">Type</button></th>
+          <th><button type="button" class="sort" data-sort="limitPrice">Limit</button></th>
+          <th><button type="button" class="sort" data-sort="status">Status</button></th>
+          <th><button type="button" class="sort" data-sort="brokerOrderId">Tradier ID</button></th>
+          <th>Legs</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
 
   <form id="trade-form">
     <fieldset>
@@ -265,7 +298,17 @@
   <section class="review" id="review" hidden>
     <h2>Review Sandbox Preview</h2>
     <p>Confirm the legs, quantities, limit price, and broker preview below before submitting. This sends a paper order to Tradier's sandbox.</p>
-    <pre id="broker-preview"></pre>
+    <table id="preview-legs" class="greek-table">
+      <thead><tr><th>Action</th><th>Qty</th><th>Type</th><th>Strike</th><th>Expiration</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p id="preview-order-summary"></p>
+    <div class="preview-tabs" role="tablist">
+      <button type="button" role="tab" class="active" data-preview-tab="response">Response</button>
+      <button type="button" role="tab" data-preview-tab="request">Request</button>
+    </div>
+    <pre id="broker-preview" data-preview-pane="response"></pre>
+    <pre id="broker-request" data-preview-pane="request" hidden></pre>
     <div class="actions">
       <button type="button" class="confirm" id="confirm-button">Confirm and Submit Paper Order</button>
       <button type="button" class="cancel" id="cancel-button">Cancel Preview</button>
@@ -274,6 +317,87 @@
   <p id="status" role="status" aria-live="polite"></p>
 
   <script>
+    const ordersPanel = document.querySelector("#orders-panel");
+    const ordersFrom = document.querySelector("#orders-from");
+    const ordersTo = document.querySelector("#orders-to");
+    const ordersStatus = document.querySelector("#orders-status");
+    let loadedOrders = [];
+    let ordersSort = { key: "submittedAt", direction: -1 };
+
+    function localDateString(date) {
+      const pad = number => String(number).padStart(2, "0");
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    }
+
+    function resetOrdersRange() {
+      const today = new Date();
+      const start = new Date(today);
+      start.setDate(today.getDate() - 6);
+      ordersFrom.value = localDateString(start);
+      ordersTo.value = localDateString(today);
+    }
+
+    function renderOrders() {
+      const { key, direction } = ordersSort;
+      const sorted = [...loadedOrders].sort((left, right) => {
+        const a = left[key] ?? "";
+        const b = right[key] ?? "";
+        const result = typeof a === "number" && typeof b === "number"
+          ? a - b : String(a).localeCompare(String(b));
+        return result * direction || (right.pk - left.pk) * direction;
+      });
+      document.querySelectorAll("#orders-table th").forEach(th => {
+        const sortKey = th.querySelector("button.sort")?.dataset.sort;
+        if (sortKey === key) th.setAttribute("aria-sort", direction > 0 ? "ascending" : "descending");
+        else th.removeAttribute("aria-sort");
+      });
+      document.querySelector("#orders-table tbody").replaceChildren(...sorted.map(order => {
+        const tr = document.createElement("tr");
+        const legs = order.legs.map(leg =>
+          `${leg.action.replaceAll("_", " ").toLowerCase()} ${leg.quantity} ${leg.expiration} ${leg.strike} ${leg.optionType}`)
+          .join("; ");
+        [order.submittedAt.replace("T", " "), order.symbol, order.spreadType.replaceAll("_", " "),
+          order.orderType, Number(order.limitPrice).toFixed(2), order.status,
+          order.brokerOrderId ?? "", legs].forEach(value =>
+          tr.append(Object.assign(document.createElement("td"), { textContent: value })));
+        return tr;
+      }));
+      ordersStatus.textContent = `${sorted.length} order${sorted.length === 1 ? "" : "s"}.`;
+    }
+
+    async function loadOrders() {
+      ordersStatus.textContent = "Loading orders…";
+      try {
+        const params = new URLSearchParams({ from: ordersFrom.value, to: ordersTo.value });
+        const response = await fetch(`api/trades/orders/all?${params}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || `Request failed (${response.status}).`);
+        loadedOrders = data;
+        renderOrders();
+      } catch (error) {
+        ordersStatus.textContent = error.message;
+      }
+    }
+
+    document.querySelector("#show-orders-button").addEventListener("click", event => {
+      ordersPanel.hidden = !ordersPanel.hidden;
+      event.target.setAttribute("aria-expanded", String(!ordersPanel.hidden));
+      event.target.textContent = ordersPanel.hidden ? "Show All Orders" : "Hide All Orders";
+      if (!ordersPanel.hidden) {
+        if (!ordersFrom.value || !ordersTo.value) resetOrdersRange();
+        loadOrders();
+      }
+    });
+    document.querySelector("#orders-refresh").addEventListener("click", loadOrders);
+    ordersFrom.addEventListener("change", loadOrders);
+    ordersTo.addEventListener("change", loadOrders);
+    document.querySelectorAll("#orders-table button.sort").forEach(button =>
+      button.addEventListener("click", () => {
+        const key = button.dataset.sort;
+        ordersSort = { key, direction: ordersSort.key === key ? -ordersSort.direction : 1 };
+        renderOrders();
+      }));
+
     const form = document.querySelector("#trade-form");
     const spreadSelect = document.querySelector("#spread-type");
     const legContainer = document.querySelector("#legs");
@@ -1043,9 +1167,9 @@
         if (role === "put-long") return putShort > 0
           ? strikes.filter(strike => strike < putShort) : strikes;
         if (role === "put-short") return callShort > 0
-          ? strikes.filter(strike => strike < callShort) : strikes;
+          ? strikes.filter(strike => strike <= callShort) : strikes;
         if (role === "call-short") return putShort > 0
-          ? strikes.filter(strike => strike > putShort) : strikes;
+          ? strikes.filter(strike => strike >= putShort) : strikes;
         if (role === "call-long") return callShort > 0
           ? strikes.filter(strike => strike > callShort) : strikes;
       }
@@ -1130,13 +1254,15 @@
         } else {
           let preferredStrike = atmStrike;
           if (role === "put-short") {
-            const belowSpot = strikes.filter(strike => strike < centerPrice);
-            preferredStrike = belowSpot.filter(strike => strike <= centerPrice * 0.98).at(-1)
-              ?? belowSpot.at(-1);
+            const eligible = strikes.length > 1 ? strikes.slice(1) : strikes;
+            preferredStrike = eligible.filter(strike => strike <= centerPrice * 0.98).at(-1)
+              ?? eligible.reduce((nearest, strike) =>
+                Math.abs(strike - centerPrice) < Math.abs(nearest - centerPrice) ? strike : nearest);
           } else if (role === "call-short") {
-            const aboveSpot = strikes.filter(strike => strike > centerPrice);
-            preferredStrike = aboveSpot.find(strike => strike >= centerPrice * 1.02)
-              ?? aboveSpot[0];
+            const eligible = strikes.length > 1 ? strikes.slice(0, -1) : strikes;
+            preferredStrike = eligible.find(strike => strike >= centerPrice * 1.02)
+              ?? eligible.reduce((nearest, strike) =>
+                Math.abs(strike - centerPrice) < Math.abs(nearest - centerPrice) ? strike : nearest);
           } else if (role === "put-inner") {
             preferredStrike = strikes.filter(strike => strike < centerPrice).slice(-1)[0];
           } else if (role === "call-inner") {
@@ -1293,7 +1419,7 @@
       }
       if (spreadSelect.value === "DOUBLE_DIAGONAL") {
         return strike("put-long") < strike("put-short")
-          && strike("put-short") < strike("call-short")
+          && strike("put-short") <= strike("call-short")
           && strike("call-short") < strike("call-long");
       }
       return rows.every(row => Number(selectedStrike(row)) > 0);
@@ -1995,12 +2121,7 @@
 
     function estimateExpirationProbabilities(quote, legs) {
       const expirations = new Set(legs.map(leg => leg.expiration));
-      if (expirations.size !== 1) {
-        return Promise.resolve({
-          profit: null, maxLoss: null, maxGain: null,
-          note: "Expiration probabilities are unavailable for multi-expiration positions."
-        });
-      }
+      const multiExpiration = expirations.size !== 1;
       const quoteLegs = quote.legs;
       if (quoteLegs.length !== legs.length
           || quoteLegs.some(leg => !Number.isFinite(Number(leg.impliedVolatility))
@@ -2017,6 +2138,51 @@
           profit: null, maxLoss: null, maxGain: null,
           note: "Expiration probabilities require valid quantities for every leg."
         });
+      }
+      if (multiExpiration) {
+        return fetchUnderlyingPrice(symbolInput.value.trim().toUpperCase()).then(spot => {
+          const yearMs = 365 * 24 * 60 * 60 * 1000;
+          const endOf = expiration => new Date(`${expiration}T23:59:59`).getTime();
+          const shortEnd = Math.min(...legs.map(leg => endOf(leg.expiration)));
+          const time = Math.max((shortEnd - Date.now()) / yearMs, 1 / 365);
+          const volatility = quoteLegs.reduce((total, leg, index) =>
+            total + Number(leg.impliedVolatility) * Math.abs(quantities[index]), 0)
+            / quantities.reduce((total, quantity) => total + Math.abs(quantity), 0);
+          const premiumSign = orderType.value === "CREDIT" ? 1 : orderType.value === "DEBIT" ? -1 : 0;
+          const premium = premiumSign * Number(form.elements.limitPrice.value) * units * 100;
+          const payoff = underlying => premium + legs.reduce((total, leg, index) => {
+            const remaining = (endOf(leg.expiration) - shortEnd) / yearMs;
+            const value = remaining <= 0
+              ? (leg.optionType === "CALL" ? Math.max(underlying - leg.strike, 0)
+                : Math.max(leg.strike - underlying, 0))
+              : theoreticalOptionPrice(underlying, leg.strike, remaining,
+                Number(quoteLegs[index].impliedVolatility), leg.optionType);
+            return total + (leg.action === "BUY_TO_OPEN" ? 1 : -1) * value * leg.quantity * 100;
+          }, 0);
+          const steps = 1200;
+          const low = spot * 0.2;
+          const high = spot * 3;
+          const edges = Array.from({ length: steps + 1 }, (_, index) =>
+            low * Math.pow(high / low, index / steps));
+          const cells = Array.from({ length: steps }, (_, index) => ({
+            value: payoff(Math.sqrt(edges[index] * edges[index + 1])),
+            probability: probabilityBelow(edges[index + 1], spot, volatility, time)
+              - probabilityBelow(edges[index], spot, volatility, time)
+          }));
+          const best = Math.max(...cells.map(cell => cell.value));
+          const worst = Math.min(...cells.map(cell => cell.value));
+          const sum = predicate => cells.reduce(
+            (total, cell) => total + (predicate(cell.value) ? cell.probability : 0), 0);
+          return {
+            profit: sum(value => value > 0),
+            maxGain: best > 0 ? sum(value => value >= best * 0.9) : null,
+            maxLoss: worst < 0 ? sum(value => value <= worst * 0.9) : null,
+            note: "Time-spread estimate at the short expiration: lognormal distribution with average leg IV, far legs valued by Black-Scholes. Max gain/loss are the chances of finishing within 10% of the modeled best/worst result; ignores skew, rates, fees, and early exercise."
+          };
+        }).catch(error => ({
+          profit: null, maxGain: null, maxLoss: null,
+          note: `Expiration probabilities unavailable: ${error.message}`
+        }));
       }
       return fetchUnderlyingPrice(symbolInput.value.trim().toUpperCase()).then(spot => {
         const nearestExpiration = legs.map(leg => leg.expiration).sort()[0];
@@ -2707,6 +2873,14 @@
 
     positionPriceSlider.addEventListener("input", event => usePositionPrice(event.target.value));
 
+    document.querySelectorAll("[data-preview-tab]").forEach(tab => tab.addEventListener("click", () => {
+      document.querySelectorAll("[data-preview-tab]").forEach(other =>
+        other.classList.toggle("active", other === tab));
+      document.querySelectorAll("[data-preview-pane]").forEach(pane => {
+        pane.hidden = pane.dataset.previewPane !== tab.dataset.previewTab;
+      });
+    }));
+
     form.addEventListener("submit", async event => {
       event.preventDefault();
       clearPreview();
@@ -2715,8 +2889,20 @@
       const button = document.querySelector("#preview-button");
       button.disabled = true;
       try {
-        const result = await requestJson("api/trades/preview", orderPayload());
+        const payload = orderPayload();
+        const result = await requestJson("api/trades/preview", payload);
         activePreviewId = result.previewId;
+        const legRows = document.querySelector("#preview-legs tbody");
+        legRows.replaceChildren(...payload.legs.map(leg => {
+          const tr = document.createElement("tr");
+          [leg.action.replaceAll("_", " "), leg.quantity, leg.optionType, leg.strike, leg.expiration]
+            .forEach(value => tr.append(Object.assign(document.createElement("td"), { textContent: value })));
+          return tr;
+        }));
+        document.querySelector("#preview-order-summary").textContent =
+          `${payload.symbol} ${payload.spreadType.replaceAll("_", " ")} — ${payload.orderType} at limit ${payload.limitPrice.toFixed(2)}`;
+        document.querySelector("#broker-request").textContent =
+          `POST /v1/accounts/${"{accountId}"}/orders\n` + JSON.stringify(result.brokerRequest, null, 2);
         document.querySelector("#broker-preview").textContent =
           JSON.stringify(result.brokerPreview, null, 2);
         review.hidden = false;

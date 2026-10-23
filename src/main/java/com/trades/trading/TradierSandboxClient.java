@@ -333,6 +333,41 @@ public class TradierSandboxClient implements TradierGateway {
     }
 
     @Override
+    public java.util.Map<String, List<String>> previewRequest(TradeRequest trade) {
+        return new java.util.LinkedHashMap<>(toForm(trade, true));
+    }
+
+    @Override
+    public JsonNode accountOrders() {
+        requireOrderCredentials();
+        JsonNode response = restClient.get()
+                .uri("/accounts/{accountId}/orders?includeTags=true", properties.accountId())
+                .headers(headers -> headers.setBearerAuth(Objects.requireNonNull(properties.token())))
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(JsonNode.class);
+        if (response == null || response.has("errors")) {
+            throw new TradierRequestException("Tradier did not return the account orders.");
+        }
+        return response;
+    }
+
+    @Override
+    public JsonNode orderStatus(String orderId) {
+        requireOrderCredentials();
+        JsonNode response = restClient.get()
+                .uri("/accounts/{accountId}/orders/{orderId}", properties.accountId(), orderId)
+                .headers(headers -> headers.setBearerAuth(Objects.requireNonNull(properties.token())))
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(JsonNode.class);
+        if (response == null || response.has("errors") || !response.has("order")) {
+            throw new TradierRequestException("Tradier did not return the order status.");
+        }
+        return response;
+    }
+
+    @Override
     public JsonNode submit(TradeRequest trade) {
         return place(trade, false);
     }
@@ -360,7 +395,8 @@ public class TradierSandboxClient implements TradierGateway {
         if (trade.spreadType() == SpreadType.SINGLE_LEG) {
             OptionLeg leg = trade.legs().get(0);
             form.add("class", "option");
-            form.add("symbol", optionSymbol(trade.symbol(), leg));
+            form.add("symbol", trade.symbol().toUpperCase(Locale.ROOT));
+            form.add("option_symbol", optionSymbol(trade.symbol(), leg));
             form.add("side", leg.action().tradierValue());
             form.add("quantity", Integer.toString(leg.quantity()));
             form.add("type", "limit");
@@ -375,10 +411,12 @@ public class TradierSandboxClient implements TradierGateway {
         form.add("duration", "day");
         form.add("price", trade.limitPrice().toPlainString());
         form.add("preview", Boolean.toString(preview));
+        int index = 0;
         for (OptionLeg leg : trade.legs()) {
-            form.add("option_symbol[]", optionSymbol(trade.symbol(), leg));
-            form.add("side[]", leg.action().tradierValue());
-            form.add("quantity[]", Integer.toString(leg.quantity()));
+            form.add("option_symbol[" + index + "]", optionSymbol(trade.symbol(), leg));
+            form.add("side[" + index + "]", leg.action().tradierValue());
+            form.add("quantity[" + index + "]", Integer.toString(leg.quantity()));
+            index++;
         }
         return form;
     }

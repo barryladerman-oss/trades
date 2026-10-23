@@ -1,4 +1,4 @@
-﻿package com.trades.trading;
+package com.trades.trading;
 
 import org.junit.jupiter.api.Test;
 
@@ -49,6 +49,11 @@ class TradeValidatorTests {
                 leg(OptionType.PUT, far, 85, OpeningAction.BUY_TO_OPEN, 1),
                 leg(OptionType.CALL, near, 110, OpeningAction.SELL_TO_OPEN, 1),
                 leg(OptionType.CALL, far, 115, OpeningAction.BUY_TO_OPEN, 1));
+        assertValid(SpreadType.DOUBLE_DIAGONAL,
+                leg(OptionType.PUT, near, 100, OpeningAction.SELL_TO_OPEN, 1),
+                leg(OptionType.PUT, far, 95, OpeningAction.BUY_TO_OPEN, 1),
+                leg(OptionType.CALL, near, 100, OpeningAction.SELL_TO_OPEN, 1),
+                leg(OptionType.CALL, far, 105, OpeningAction.BUY_TO_OPEN, 1));
         assertValid(SpreadType.IRON_BUTTERFLY,
                 leg(OptionType.PUT, near, 95, OpeningAction.BUY_TO_OPEN, 1),
                 leg(OptionType.PUT, near, 100, OpeningAction.SELL_TO_OPEN, 1),

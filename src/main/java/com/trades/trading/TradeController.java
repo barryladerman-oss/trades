@@ -25,12 +25,37 @@ public class TradeController {
     private final TradePreviewService service;
     private final TradeQuoteService quoteService;
     private final IvPercentileService ivPercentileService;
+    private final TradeOrderService orderService;
+    private final TradingJournalService journalService;
 
     public TradeController(TradePreviewService service, TradeQuoteService quoteService,
-                           IvPercentileService ivPercentileService) {
+                           IvPercentileService ivPercentileService, TradeOrderService orderService,
+                           TradingJournalService journalService) {
         this.service = service;
         this.quoteService = quoteService;
         this.ivPercentileService = ivPercentileService;
+        this.orderService = orderService;
+        this.journalService = journalService;
+    }
+
+    @PostMapping("/journal/import")
+    public java.util.Map<String, Integer> importJournal() {
+        return java.util.Map.of("legsImported", journalService.importOrders());
+    }
+
+    @GetMapping("/orders/all")
+    public List<TradeOrderRecord> allOrders(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        LocalDate end = to == null ? LocalDate.now() : to;
+        LocalDate start = from == null ? end.minusDays(6) : from;
+        return orderService.between(start, end);
+    }
+
+    @GetMapping("/orders")
+    public List<TradeOrderRecord> orders(
+            @RequestParam @NotBlank @Pattern(regexp = "[A-Za-z][A-Za-z0-9.-]{0,9}") String symbol) {
+        return orderService.forSymbol(symbol);
     }
 
     @GetMapping("/symbols")
