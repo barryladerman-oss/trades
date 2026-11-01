@@ -57,6 +57,7 @@ public class TradeValidator {
             case CALENDAR -> validateCalendar(legs);
             case DIAGONAL -> validateDiagonal(legs);
             case DOUBLE_DIAGONAL -> validateDoubleDiagonal(legs);
+            case STRADDLE, STRANGLE, CUSTOM -> { }
         }
     }
 
