@@ -218,7 +218,6 @@ SELECT
     s.pk AS symbolPk,
     s.symbol,
     st.code AS spreadType,
-    st.description AS spreadName,
     ot.code AS orderType,
     os.code AS status,
     env.code AS environment,
@@ -243,7 +242,6 @@ SELECT
     o.orderPk,
     o.symbol,
     o.spreadType,
-    o.spreadName,
     o.orderType,
     o.status,
     o.environment,
@@ -265,7 +263,6 @@ SELECT
     s.symbol,
     o.orderPk,
     o.spreadType,
-    o.spreadName,
     et.code AS eventType,
     env.code AS environment,
     e.previewId,
@@ -287,7 +284,6 @@ CREATE OR REPLACE VIEW symbolSpreadSummary AS
 SELECT
     symbol,
     spreadType,
-    spreadName,
     environment,
     COUNT(*) AS orderCount,
     SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END) AS openCount,
@@ -296,7 +292,7 @@ SELECT
     MIN(submittedAt) AS firstSubmittedAt,
     MAX(submittedAt) AS lastSubmittedAt
 FROM tradeOrderSummary
-GROUP BY symbol, spreadType, spreadName, environment;
+GROUP BY symbol, spreadType, environment;
 
 CREATE TABLE IF NOT EXISTS tradingJournalLegs (
     pk INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -351,7 +347,6 @@ SELECT
     l.tradierLegId,
     s.symbol,
     st.code AS spreadType,
-    st.description AS spreadName,
     env.code AS environment,
     l.orderClass,
     l.orderStatus,
@@ -379,7 +374,6 @@ SELECT
     l.tradierOrderId,
     s.symbol,
     st.code AS spreadType,
-    st.description AS spreadName,
     env.code AS environment,
     MAX(l.orderClass) AS orderClass,
     MAX(l.orderKind) AS orderKind,
@@ -397,4 +391,4 @@ FROM tradingJournalLegs AS l
 INNER JOIN ivTrackedSymbols AS s ON s.pk = l.ivTrackedSymbolsFk
 INNER JOIN spreadTypes AS st ON st.pk = l.spreadTypesFk
 INNER JOIN tradeEnvironments AS env ON env.pk = l.tradeEnvironmentsFk
-GROUP BY l.tradierOrderId, s.symbol, st.code, st.description, env.code;
+GROUP BY l.tradierOrderId, s.symbol, st.code, env.code;
