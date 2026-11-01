@@ -53,6 +53,12 @@ public class TradingJournalService {
 
     private boolean historyImported;
     private StatementFills statements;
+    private OrdersCsv ordersCsv;
+
+    @Autowired(required = false)
+    void setOrdersCsv(OrdersCsv ordersCsv) {
+        this.ordersCsv = ordersCsv;
+    }
 
     @Autowired(required = false)
     void setStatements(StatementFills statements) {
@@ -90,12 +96,17 @@ public class TradingJournalService {
     }
 
     /**
-     * Imports earlier trades from the account history feed, which has no order ids, so each option fill becomes
-     * its own journal order. Open/close is inferred by replaying fills against a running position per contract.
+     * Imports earlier trades. Orders from exported CSVs (with real order ids and multileg grouping) go in first;
+     * the account history feed then fills in any fills they don't cover, one journal order per fill since it has
+     * no order ids. Open/close for those is inferred by replaying fills against a running position per contract.
      */
     @Transactional
     public int importHistory() {
         String environment = environmentSource.environment();
+        mapper.deleteImportedHistoryEvents();
+        mapper.deleteImportedHistoryOrderLegs();
+        mapper.deleteImportedHistoryOrders();
+        mapper.deleteImportedHistoryJournalLegs();
         int written = 0;
         for (String target : List.of(environment, TradierProperties.LIVE.equals(environment)
                 ? TradierProperties.SANDBOX : TradierProperties.LIVE)) {
@@ -103,7 +114,16 @@ public class TradingJournalService {
                 continue;
             }
             try {
-                written += importHistoryEvents(gateway.accountHistory(target), target);
+                java.util.Map<String, Integer> covered = new java.util.HashMap<>();
+                if (TradierProperties.LIVE.equals(target) && ordersCsv != null) {
+                    List<ObjectNode> exported = ordersCsv.load();
+                    covered = OrdersCsv.filledLegKeys(exported);
+                    LOGGER.info("Loaded {} orders from exported CSVs.", exported.size());
+                    for (JsonNode order : exported) {
+                        written += importOrder(order, target);
+                    }
+                }
+                written += importHistoryEvents(gateway.accountHistory(target), target, covered);
             } catch (RuntimeException exception) {
                 LOGGER.warn("Trading journal history import for {} failed: {}", target, exception.getMessage());
             }
@@ -111,7 +131,7 @@ public class TradingJournalService {
         return written;
     }
 
-    private int importHistoryEvents(JsonNode response, String environment) {
+    private int importHistoryEvents(JsonNode response, String environment, java.util.Map<String, Integer> covered) {
         List<JsonNode> events = asList(response.path("history").path("event"));
         java.util.Collections.reverse(events);
         events.sort(java.util.Comparator.comparing(event -> text(event, "date") == null ? "" : text(event, "date")));
@@ -149,6 +169,13 @@ public class TradingJournalService {
                 closing = confirmed;
             }
             positions.put(optionSymbol, position.add(signed));
+            Integer remaining = covered.get(OrdersCsv.fillKey(text(event, "date").substring(0, 10), optionSymbol,
+                    buy, quantity));
+            if (remaining != null && remaining > 0) {
+                covered.put(OrdersCsv.fillKey(text(event, "date").substring(0, 10), optionSymbol, buy, quantity),
+                        remaining - 1);
+                continue;
+            }
 
             String date = text(event, "date");
             String base = "H" + date.substring(0, 10).replace("-", "") + "-" + matcher.group(1) + matcher.group(2)
