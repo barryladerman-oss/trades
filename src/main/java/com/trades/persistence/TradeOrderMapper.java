@@ -156,6 +156,14 @@ public interface TradeOrderMapper {
     @Select("SELECT pk FROM tradeOrders WHERE tradierOrderId = #{tradierOrderId}")
     Integer findOrderPkByTradierId(@Param("tradierOrderId") String tradierOrderId);
 
+    @Select("SELECT s.symbol FROM tradeOrders o INNER JOIN ivTrackedSymbols s ON s.pk = o.ivTrackedSymbolsFk "
+            + "WHERE o.pk = #{orderPk}")
+    String findOrderSymbol(@Param("orderPk") int orderPk);
+
+    @Select("SELECT e.code FROM tradeOrders o INNER JOIN tradeEnvironments e ON e.pk = o.tradeEnvironmentsFk "
+            + "WHERE o.pk = #{orderPk}")
+    String findOrderEnvironment(@Param("orderPk") int orderPk);
+
     @Select("SELECT tradierStatus FROM tradeOrders WHERE pk = #{orderPk}")
     String findTradierStatus(@Param("orderPk") int orderPk);
 

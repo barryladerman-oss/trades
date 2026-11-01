@@ -85,6 +85,25 @@ class TradesApplicationTests {
     }
 
     @Test
+    void cancelRecordsCancelEventAndStatus() throws Exception {
+        TradeRequest trade = new TradeRequest("cncltst", SpreadType.SINGLE_LEG,
+                java.util.List.of(new OptionLeg(com.trades.trading.OptionType.CALL, LocalDate.of(2026, 12, 18),
+                        new BigDecimal("305"), com.trades.trading.OpeningAction.BUY_TO_OPEN, 1)),
+                OrderType.DEBIT, new BigDecimal("1.00"));
+        orderService.record(trade, "SANDBOX", new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree("{\"order\":{\"id\":888,\"partner_id\":\"p\"}}"));
+        var gateway = org.mockito.Mockito.mock(com.trades.trading.TradierGateway.class);
+        var poller = new com.trades.trading.OrderStatusPoller(orderMapper, orderService, gateway,
+                new com.trades.trading.TradierEnvironment(new com.trades.trading.TradierProperties(null, null)));
+
+        poller.cancel("888");
+
+        var order = orderService.forSymbol("CNCLTST").get(0);
+        assertThat(order.status()).isEqualTo(com.trades.trading.OrderStatus.CANCELLED);
+        assertThat(order.events()).extracting("eventType").containsExactly("CANCEL");
+    }
+
+    @Test
     void pollUpdatesOrderStatusAndRecordsChangeOnce() throws Exception {
         TradeRequest trade = new TradeRequest("polltst", SpreadType.SINGLE_LEG,
                 java.util.List.of(new OptionLeg(com.trades.trading.OptionType.CALL, LocalDate.of(2026, 12, 18),

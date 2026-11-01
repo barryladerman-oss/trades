@@ -57,9 +57,20 @@ public class OrderStatusPoller {
 
     public void cancel(String tradierOrderId) {
         Integer orderPk = mapper.findOrderPkByTradierId(tradierOrderId);
-        gateway.cancelOrder(tradierOrderId);
+        String endpoint = "DELETE /v1/accounts/{accountId}/orders/" + tradierOrderId;
+        try {
+            gateway.cancelOrder(tradierOrderId);
+        } catch (RuntimeException ex) {
+            if (orderPk != null) {
+                orders.recordEvent(mapper.findOrderSymbol(orderPk), mapper.findOrderEnvironment(orderPk), orderPk, null, "CANCEL", false, endpoint,
+                        Map.of(), null, ex.getMessage());
+            }
+            throw ex;
+        }
         if (orderPk != null) {
             mapper.updateStatus(orderPk, "CANCELLED", "canceled");
+            orders.recordEvent(mapper.findOrderSymbol(orderPk), mapper.findOrderEnvironment(orderPk), orderPk, null, "CANCEL", true, endpoint,
+                    Map.of(), null, null);
         }
     }
 
