@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS tradeEnvironments (
 );
 
 INSERT IGNORE INTO tradeEnvironments (code, description) VALUES
-    ('SANDBOX', 'Tradier sandbox'), ('LIVE', 'Tradier live');
+    ('SANDBOX', 'Tradier Sandbox'), ('LIVE', 'Tradier Live');
 
 CREATE TABLE IF NOT EXISTS ivTrackedSymbols (
     pk INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -87,32 +87,54 @@ CREATE TABLE IF NOT EXISTS orderEventTypes (
 );
 
 INSERT IGNORE INTO spreadTypes (code, description) VALUES
-    ('SINGLE_LEG', 'Single option'),
-    ('VERTICAL', 'Vertical spread'),
-    ('IRON_CONDOR', 'Iron condor'),
+    ('SINGLE_LEG', 'Single Option'),
+    ('VERTICAL', 'Vertical Spread'),
+    ('IRON_CONDOR', 'Iron Condor'),
     ('BUTTERFLY', 'Butterfly'),
-    ('CALENDAR', 'Calendar spread'),
-    ('DIAGONAL', 'Diagonal spread'),
-    ('DOUBLE_DIAGONAL', 'Double diagonal spread'),
-    ('IRON_BUTTERFLY', 'Iron butterfly'),
+    ('CALENDAR', 'Calendar Spread'),
+    ('DIAGONAL', 'Diagonal Spread'),
+    ('DOUBLE_DIAGONAL', 'Double Diagonal Spread'),
+    ('IRON_BUTTERFLY', 'Iron Butterfly'),
     ('STRADDLE', 'Straddle'),
     ('STRANGLE', 'Strangle'),
-    ('CUSTOM', 'Other or unrecognized combination');
+    ('CUSTOM', 'Other Or Unrecognized Combination');
 INSERT IGNORE INTO orderTypes (code, description) VALUES
-    ('DEBIT', 'Net debit'), ('CREDIT', 'Net credit'), ('EVEN', 'Even');
+    ('DEBIT', 'Net Debit'), ('CREDIT', 'Net Credit'), ('EVEN', 'Even');
 INSERT IGNORE INTO optionTypes (code, description) VALUES ('CALL', 'Call'), ('PUT', 'Put');
 UPDATE openingActions SET code = 'BTO' WHERE code = 'BUY_TO_OPEN';
 UPDATE openingActions SET code = 'STO' WHERE code = 'SELL_TO_OPEN';
 UPDATE openingActions SET code = 'BTC' WHERE code = 'BUY_TO_CLOSE';
 UPDATE openingActions SET code = 'STC' WHERE code = 'SELL_TO_CLOSE';
 INSERT IGNORE INTO openingActions (code, description) VALUES
-    ('BTO', 'Buy to open'), ('STO', 'Sell to open'),
-    ('BTC', 'Buy to close'), ('STC', 'Sell to close');
+    ('BTO', 'Buy To Open'), ('STO', 'Sell To Open'),
+    ('BTC', 'Buy To Close'), ('STC', 'Sell To Close');
 INSERT IGNORE INTO orderStatuses (code, description) VALUES
     ('OPEN', 'Open'), ('FILLED', 'Filled'), ('CANCELLED', 'Cancelled');
 INSERT IGNORE INTO orderEventTypes (code, description) VALUES
-    ('PREVIEW', 'Order preview'), ('SUBMIT', 'Order submission'),
-    ('CANCEL', 'Order cancellation'), ('CLOSE', 'Order close'), ('STATUS', 'Order status poll');
+    ('PREVIEW', 'Order Preview'), ('SUBMIT', 'Order Submission'),
+    ('CANCEL', 'Order Cancellation'), ('CLOSE', 'Order Close'), ('STATUS', 'Order Status Poll');
+
+UPDATE openingActions SET description = 'Buy To Open' WHERE code = 'BTO';
+UPDATE openingActions SET description = 'Sell To Open' WHERE code = 'STO';
+UPDATE openingActions SET description = 'Buy To Close' WHERE code = 'BTC';
+UPDATE openingActions SET description = 'Sell To Close' WHERE code = 'STC';
+UPDATE orderEventTypes SET description = 'Order Preview' WHERE code = 'PREVIEW';
+UPDATE orderEventTypes SET description = 'Order Submission' WHERE code = 'SUBMIT';
+UPDATE orderEventTypes SET description = 'Order Cancellation' WHERE code = 'CANCEL';
+UPDATE orderEventTypes SET description = 'Order Close' WHERE code = 'CLOSE';
+UPDATE orderEventTypes SET description = 'Order Status Poll' WHERE code = 'STATUS';
+UPDATE orderTypes SET description = 'Net Debit' WHERE code = 'DEBIT';
+UPDATE orderTypes SET description = 'Net Credit' WHERE code = 'CREDIT';
+UPDATE spreadTypes SET description = 'Single Option' WHERE code = 'SINGLE_LEG';
+UPDATE spreadTypes SET description = 'Vertical Spread' WHERE code = 'VERTICAL';
+UPDATE spreadTypes SET description = 'Iron Condor' WHERE code = 'IRON_CONDOR';
+UPDATE spreadTypes SET description = 'Calendar Spread' WHERE code = 'CALENDAR';
+UPDATE spreadTypes SET description = 'Diagonal Spread' WHERE code = 'DIAGONAL';
+UPDATE spreadTypes SET description = 'Double Diagonal Spread' WHERE code = 'DOUBLE_DIAGONAL';
+UPDATE spreadTypes SET description = 'Iron Butterfly' WHERE code = 'IRON_BUTTERFLY';
+UPDATE spreadTypes SET description = 'Other Or Unrecognized Combination' WHERE code = 'CUSTOM';
+UPDATE tradeEnvironments SET description = 'Tradier Sandbox' WHERE code = 'SANDBOX';
+UPDATE tradeEnvironments SET description = 'Tradier Live' WHERE code = 'LIVE';
 
 CREATE TABLE IF NOT EXISTS tradeOrders (
     pk INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
