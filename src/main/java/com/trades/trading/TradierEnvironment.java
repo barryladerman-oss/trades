@@ -24,6 +24,19 @@ public class TradierEnvironment {
         return current;
     }
 
+    public String tokenFor(String environment) {
+        return TradierProperties.LIVE.equals(environment) ? config.liveToken() : config.token();
+    }
+
+    public String accountIdFor(String environment) {
+        return TradierProperties.LIVE.equals(environment) ? config.liveAccountId() : config.accountId();
+    }
+
+    public boolean available(String environment) {
+        return TradierProperties.LIVE.equals(environment) ? liveAvailable()
+                : notBlank(config.token()) && notBlank(config.accountId());
+    }
+
     public boolean live() {
         return TradierProperties.LIVE.equals(current);
     }

@@ -1,5 +1,6 @@
 package com.trades.persistence;
 
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -11,6 +12,19 @@ import java.time.LocalDateTime;
 
 @Mapper
 public interface TradingJournalMapper {
+    // Orders rebuilt from the account history feed carry ids starting with "H" and are regenerated on each import.
+    @Delete("DELETE FROM tradeOrderEvents WHERE tradierOrderId LIKE 'H%'")
+    int deleteImportedHistoryEvents();
+
+    @Delete("DELETE FROM tradeOrderLegs WHERE tradeOrdersFk IN (SELECT pk FROM tradeOrders WHERE tradierOrderId LIKE 'H%')")
+    int deleteImportedHistoryOrderLegs();
+
+    @Delete("DELETE FROM tradeOrders WHERE tradierOrderId LIKE 'H%'")
+    int deleteImportedHistoryOrders();
+
+    @Delete("DELETE FROM tradingJournalLegs WHERE tradierOrderId LIKE 'H%'")
+    int deleteImportedHistoryJournalLegs();
+
     @Insert("""
             INSERT INTO ivTrackedSymbols (symbol)
             VALUES (#{symbol})

@@ -174,14 +174,14 @@ public interface TradeOrderMapper {
 
     @Insert("""
             INSERT INTO tradeOrders (ivTrackedSymbolsFk, spreadTypesFk, orderTypesFk, orderStatusesFk,
-                                     tradeEnvironmentsFk, tradierOrderId, limitPrice, submittedAt,
+                                     tradeEnvironmentsFk, tradierOrderId, tradierPartnerId, limitPrice, submittedAt,
                                      tradierStatus, filledAt, cancelledAt, statusCheckedAt)
             VALUES (#{order.symbolPk},
                     (SELECT pk FROM spreadTypes WHERE code = #{order.spreadType}),
                     (SELECT pk FROM orderTypes WHERE code = #{order.orderType}),
                     (SELECT pk FROM orderStatuses WHERE code = #{order.status}),
                     (SELECT pk FROM tradeEnvironments WHERE code = #{order.environment}),
-                    #{order.tradierOrderId}, #{order.limitPrice}, #{order.submittedAt},
+                    #{order.tradierOrderId}, #{order.tradierPartnerId}, #{order.limitPrice}, #{order.submittedAt},
                     #{order.tradierStatus}, #{order.filledAt}, #{order.cancelledAt}, CURRENT_TIMESTAMP)
             """)
     @Options(useGeneratedKeys = true, keyProperty = "order.pk", keyColumn = "pk")
@@ -191,6 +191,7 @@ public interface TradeOrderMapper {
             UPDATE tradeOrders
             SET orderStatusesFk = (SELECT pk FROM orderStatuses WHERE code = #{order.status}),
                 tradierStatus = #{order.tradierStatus},
+                tradierPartnerId = COALESCE(tradierPartnerId, #{order.tradierPartnerId}),
                 filledAt = COALESCE(#{order.filledAt}, filledAt),
                 cancelledAt = COALESCE(#{order.cancelledAt}, cancelledAt),
                 statusCheckedAt = CURRENT_TIMESTAMP
@@ -213,6 +214,7 @@ public interface TradeOrderMapper {
         public int pk;
         public int symbolPk;
         public String tradierOrderId;
+        public String tradierPartnerId;
         public String environment;
         public String spreadType;
         public String orderType;
