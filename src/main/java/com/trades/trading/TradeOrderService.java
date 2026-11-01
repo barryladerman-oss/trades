@@ -90,7 +90,7 @@ public class TradeOrderService {
     private List<TradeOrderRecord> withDetails(List<TradeOrderRecord> found) {
         return found.stream()
                 .map(order -> new TradeOrderRecord(order.pk(), order.symbol(), order.brokerOrderId(),
-                        order.tradierPartnerId(),
+                        order.partner(),
                         order.environment(), order.spreadType(), order.orderType(), order.limitPrice(),
                         order.status(), order.submittedAt(), order.cancelledAt(),
                         mapper.findLegs(order.pk()), mapper.findEvents(order.pk())))

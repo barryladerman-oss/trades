@@ -85,6 +85,21 @@ class TradesApplicationTests {
     }
 
     @Test
+    void showsPartnerNamesForKnownTradierPartnerIds() throws Exception {
+        TradeRequest trade = new TradeRequest("prtnrt", SpreadType.SINGLE_LEG,
+                java.util.List.of(new OptionLeg(com.trades.trading.OptionType.CALL, LocalDate.of(2026, 12, 18),
+                        new BigDecimal("305"), com.trades.trading.OpeningAction.BUY_TO_OPEN, 1)),
+                OrderType.DEBIT, new BigDecimal("1.00"));
+        orderService.record(trade, "SANDBOX", new com.fasterxml.jackson.databind.ObjectMapper().readTree(
+                "{\"order\":{\"id\":999,\"partner_id\":\"3a8bbee1-5184-4ffe-8a0c-294fbad1aee9\"}}"));
+
+        assertThat(orderService.forSymbol("PRTNRT").get(0).partner()).isEqualTo("Option Alpha");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT tradierPartner FROM tradeOrderSummary WHERE tradierOrderId = '999'", String.class))
+                .isEqualTo("Option Alpha");
+    }
+
+    @Test
     void cancelRecordsCancelEventAndStatus() throws Exception {
         TradeRequest trade = new TradeRequest("cncltst", SpreadType.SINGLE_LEG,
                 java.util.List.of(new OptionLeg(com.trades.trading.OptionType.CALL, LocalDate.of(2026, 12, 18),

@@ -25,7 +25,7 @@ public class TradingJournalController {
                 SELECT tradierOrderId, legIndex, symbol, spreadType, orderStatus, side, optionType,
                        optionSymbol, CAST(expiration AS CHAR) AS expiration, strike, legQuantity,
                        legAvgFillPrice, legExecQuantity, CAST(orderCreatedAt AS CHAR) AS orderCreatedAt,
-                       environment
+                       environment, tradierPartner
                 FROM tradingJournalLegDetails
                 WHERE environment = ?
                 ORDER BY orderCreatedAt DESC, tradierOrderId DESC, legIndex

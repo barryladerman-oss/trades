@@ -1,4 +1,4 @@
-ï»¿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -18,8 +18,8 @@
     .page-header p { margin: .2rem 0; }
     .preview-tabs { display: flex; gap: .3rem; margin: .5rem 0 0; }
     #orders-table button.sort, #journal-table button.sort { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: inherit; cursor: pointer; }
-    #orders-table th[aria-sort="ascending"] button::after, #journal-table th[aria-sort="ascending"] button::after { content: " â–²"; }
-    #orders-table th[aria-sort="descending"] button::after, #journal-table th[aria-sort="descending"] button::after { content: " â–¼"; }
+    #orders-table th[aria-sort="ascending"] button::after, #journal-table th[aria-sort="ascending"] button::after { content: " ?"; }
+    #orders-table th[aria-sort="descending"] button::after, #journal-table th[aria-sort="descending"] button::after { content: " ?"; }
     #orders-panel .actions label { display: inline-flex; align-items: center; gap: .3rem; margin-right: .6rem; }
     .main-tabs { display: flex; gap: .3rem; margin: .5rem 0; border-bottom: 2px solid var(--blue-border); }
     .main-tabs button { padding: .45rem 1rem; border: 1px solid var(--blue-border); border-bottom: 0; border-radius: 6px 6px 0 0; background: #fff; cursor: pointer; }
@@ -165,7 +165,7 @@
   </style>
 </head>
 <body>
-  <div id="live-banner" class="live-banner" hidden>LIVE TRADING â€” orders are sent to your real Tradier brokerage account</div>
+  <div id="live-banner" class="live-banner" hidden>LIVE TRADING — orders are sent to your real Tradier brokerage account</div>
   <header class="page-header">
     <div>
       <h1>Options Trading</h1>
@@ -202,6 +202,7 @@
           <th><button type="button" class="sort" data-sort="symbol">Symbol</button></th>
           <th><button type="button" class="sort" data-sort="spreadType">Spread</button></th>
           <th><button type="button" class="sort" data-sort="orderStatus">Status</button></th>
+          <th><button type="button" class="sort" data-sort="tradierPartner">Source</button></th>
           <th>Leg</th>
           <th>Side</th>
           <th>Type</th>
@@ -232,14 +233,14 @@
     <div class="position-price-control">
       <div class="position-price-heading">
         <strong>Closing Price</strong>
-        <output id="close-price-selected" for="close-price-slider">â€”</output>
+        <output id="close-price-selected" for="close-price-slider">—</output>
       </div>
       <input id="close-price-slider" type="range" min="0" max="0" step="0.01" disabled
         aria-label="Select a closing limit price between bid and ask">
       <div class="position-price-labels">
-        <span id="close-price-bid">Bid: â€”</span>
-        <span id="close-price-mid">Mid: â€”</span>
-        <span id="close-price-ask">Ask: â€”</span>
+        <span id="close-price-bid">Bid: —</span>
+        <span id="close-price-mid">Mid: —</span>
+        <span id="close-price-ask">Ask: —</span>
       </div>
       <span id="close-price-help" class="muted">The price slider enables after quotes load.</span>
     </div>
@@ -271,6 +272,7 @@
           <th><button type="button" class="sort" data-sort="orderType">Type</button></th>
           <th><button type="button" class="sort" data-sort="limitPrice">Limit</button></th>
           <th><button type="button" class="sort" data-sort="brokerOrderId">Tradier ID</button></th>
+          <th><button type="button" class="sort" data-sort="partner">Source</button></th>
           <th>Legs</th>
           <th></th>
         </tr>
@@ -292,7 +294,7 @@
     </section>
     <table class="greek-table" id="positions-table">
       <thead>
-        <tr><th>Order</th><th>Created</th><th>Symbol</th><th>Spread</th><th>DTE</th><th>DIT</th><th>Type</th><th>Expiration</th><th>Strike</th><th>Qty</th><th>Cost Basis</th><th></th></tr>
+        <tr><th>Order</th><th>Created</th><th>Symbol</th><th>Spread</th><th>Source</th><th>DTE</th><th>DIT</th><th>Type</th><th>Expiration</th><th>Strike</th><th>Qty</th><th>Cost Basis</th><th></th></tr>
       </thead>
       <tbody></tbody>
     </table>
@@ -393,17 +395,17 @@
         <input id="position-price-slider" type="range" min="0" max="0" step="0.01" disabled
           aria-label="Select a position limit price between bid and ask">
         <div class="position-price-labels">
-          <span id="position-price-bid">Bid: â€”</span>
-          <span id="position-price-mid">Mid: â€”</span>
-          <span id="position-price-ask">Ask: â€”</span>
+          <span id="position-price-bid">Bid: —</span>
+          <span id="position-price-mid">Mid: —</span>
+          <span id="position-price-ask">Ask: —</span>
         </div>
         <span id="position-price-help" class="muted">The price slider enables after position quotes load.</span>
       </div>
       <section id="quote-results" class="quote-results" hidden aria-live="polite">
         <div class="position-metrics" aria-label="Estimated expiration probabilities">
-          <div class="position-metric"><span>Prob Profit</span><strong id="position-profit">â€”</strong></div>
-          <div class="position-metric"><span>Prob Max Loss</span><strong id="position-max-loss">â€”</strong></div>
-          <div class="position-metric"><span>Prob Max Gain:</span><strong id="position-max-gain">â€”</strong></div>
+          <div class="position-metric"><span>Prob Profit</span><strong id="position-profit">—</strong></div>
+          <div class="position-metric"><span>Prob Max Loss</span><strong id="position-max-loss">—</strong></div>
+          <div class="position-metric"><span>Prob Max Gain:</span><strong id="position-max-gain">—</strong></div>
         </div>
         <p id="position-metrics-note" class="muted"></p>
       </section>
@@ -443,7 +445,7 @@
       environmentSelect.value = env.environment;
       environmentSelect.querySelector('option[value="LIVE"]').disabled = !env.liveAvailable;
       document.querySelector("#live-banner").hidden = !env.live;
-      document.title = (env.live ? "LIVE â€” " : "") + document.title.replace(/^LIVE â€” /, "");
+      document.title = (env.live ? "LIVE — " : "") + document.title.replace(/^LIVE — /, "");
       document.querySelector("#review-heading").textContent = env.live ? "Review Live Preview" : "Review Sandbox Preview";
       document.querySelector("#review-note").textContent = env.live
         ? "Confirm the legs, quantities, limit price, and broker preview below before submitting. This sends a REAL order to your live Tradier account."
@@ -513,7 +515,7 @@
           .join("; ");
         [order.submittedAt.replace("T", " "), order.symbol, order.spreadType.replaceAll("_", " "),
           order.orderType, Number(order.limitPrice).toFixed(2),
-          order.brokerOrderId ?? "", legs].forEach(value =>
+          order.brokerOrderId ?? "", order.partner ?? "", legs].forEach(value =>
           tr.append(Object.assign(document.createElement("td"), { textContent: value })));
         const cancelButton = Object.assign(document.createElement("button"),
           { type: "button", textContent: "Cancel Order", className: "cancel" });
@@ -538,7 +540,7 @@
         const detail = document.createElement("tr");
         detail.className = "order-detail";
         detail.hidden = true;
-        const detailCell = Object.assign(document.createElement("td"), { colSpan: 8 });
+        const detailCell = Object.assign(document.createElement("td"), { colSpan: 9 });
         const list = document.createElement("ul");
         order.legs.forEach(leg => {
           const action = actionLabel(leg.action);
@@ -547,7 +549,7 @@
           const expiration = new Date(`${leg.expiration}T00:00:00`).toLocaleDateString(undefined,
             { year: "numeric", month: "short", day: "numeric" });
           const item = document.createElement("li");
-          item.textContent = `${action} ${qty} Ã— ${order.symbol} `
+          item.textContent = `${action} ${qty} × ${order.symbol} `
             + `${expiration} $${Number(leg.strike)} ${kind}${qty === 1 ? "" : "s"}`;
           list.append(item);
         });
@@ -566,7 +568,7 @@
     }
 
     async function loadOrders() {
-      ordersStatus.textContent = "Loading ordersâ€¦";
+      ordersStatus.textContent = "Loading orders…";
       try {
         const response = await fetch("api/trades/orders/open");
         const data = await response.json();
@@ -608,8 +610,8 @@
       positionPlPanel.hidden = false;
       positionPlChart.replaceChildren();
       document.querySelector("#position-pl-title").textContent =
-        `${group.symbol} ${group.spreadType.replaceAll("_", " ")}${group.orderId ? ` â€” order ${group.orderId}` : ""}`;
-      positionPlStatus.textContent = "Loading quotesâ€¦";
+        `${group.symbol} ${group.spreadType.replaceAll("_", " ")}${group.orderId ? ` — order ${group.orderId}` : ""}`;
+      positionPlStatus.textContent = "Loading quotes…";
       try {
         const [spot, marks] = await Promise.all([fetchUnderlyingPrice(group.symbol), positionMarks(group)]);
         if (requestId !== positionPlRequest) return;
@@ -644,7 +646,7 @@
     }
 
     async function loadPositions() {
-      positionsStatus.textContent = "Loading positionsâ€¦";
+      positionsStatus.textContent = "Loading positions…";
       try {
         const response = await fetch("api/trades/positions");
         const groups = await response.json();
@@ -669,14 +671,14 @@
           const dte = dayNumber(group.legs.map(leg => leg.expiration).sort()[0]) - todayNumber;
           const dit = group.createdAt ? Math.max(0, todayNumber - dayNumber(group.createdAt)) : "";
           [group.orderId ?? "Unmatched", group.createdAt ?? "", group.symbol,
-            group.spreadType.replaceAll("_", " "), dte, dit,
+            group.spreadType.replaceAll("_", " "), group.tradierPartner ?? "", dte, dit,
             "", "", "", "", ""].forEach(value => cell(header, value));
           const closable = group.legs.length <= 4 && group.legs.every(leg => leg.expiration >= today
             && Number.isInteger(Number(leg.quantity)));
           const actions = document.createElement("td");
           if (closable) {
             const closeButton = Object.assign(document.createElement("button"),
-              { type: "button", textContent: "Closeâ€¦" });
+              { type: "button", textContent: "Close…" });
             // Reuse the close dialog by shaping the position like a filled journal order.
             closeButton.addEventListener("click", () => openCloseDialog({
               symbol: group.symbol,
@@ -696,7 +698,7 @@
           rows.push(header);
           group.legs.forEach((leg, index) => {
             const tr = document.createElement("tr");
-            ["", "", "", "", "", "", leg.optionType, leg.expiration, Number(leg.strike).toFixed(2), leg.quantity,
+            ["", "", "", "", "", "", "", leg.optionType, leg.expiration, Number(leg.strike).toFixed(2), leg.quantity,
               Number(leg.costBasis).toFixed(2), ""].forEach(value => cell(tr, value));
             rows.push(tr);
           });
@@ -758,13 +760,13 @@
         const header = document.createElement("tr");
         header.className = "journal-order";
         cells(header, [order.orderCreatedAt ?? "", order.tradierOrderId, order.symbol,
-          order.spreadType.replaceAll("_", " "), order.orderStatus ?? "",
+          order.spreadType.replaceAll("_", " "), order.orderStatus ?? "", order.tradierPartner ?? "",
           `${order.legs.length} leg${order.legs.length === 1 ? "" : "s"}`, "", "", "", "", "", ""]);
         rows.push(header);
         order.legs.sort((a, b) => a.legIndex - b.legIndex).forEach(leg => {
           const tr = document.createElement("tr");
           tr.className = "journal-leg";
-          cells(tr, ["", "", "", "", "", leg.legIndex + 1, (leg.side ?? "") === "" ? "" : actionLabel(leg.side),
+          cells(tr, ["", "", "", "", "", "", leg.legIndex + 1, (leg.side ?? "") === "" ? "" : actionLabel(leg.side),
             leg.optionType ?? "", leg.expiration ?? "", number(leg.strike, 2), number(leg.legQuantity, 0),
             number(leg.legAvgFillPrice, 2)]);
           rows.push(tr);
@@ -775,7 +777,7 @@
     }
 
     async function loadJournal(sync) {
-      journalStatus.textContent = sync ? "Syncing from Tradierâ€¦" : "Loading journalâ€¦";
+      journalStatus.textContent = sync ? "Syncing from Tradier…" : "Loading journal…";
       try {
         if (sync) {
           const imported = await fetch("api/trades/journal/import", { method: "POST" });
@@ -826,7 +828,7 @@
       document.querySelector("#close-order-type").value = net > 0 ? "CREDIT" : "DEBIT";
       document.querySelector("#close-limit").value = Math.abs(net).toFixed(2);
       document.querySelector("#close-summary").textContent =
-        `${order.symbol} ${order.spreadType.replaceAll("_", " ")} â€” closes order ${order.tradierOrderId}`;
+        `${order.symbol} ${order.spreadType.replaceAll("_", " ")} — closes order ${order.tradierOrderId}`;
       document.querySelector("#close-legs tbody").replaceChildren(...legs.map(leg => {
         const tr = document.createElement("tr");
         [actionLabel(leg.action), leg.quantity, leg.optionType, leg.strike.toFixed(2), leg.expiration]
@@ -851,12 +853,12 @@
       closeSlider.disabled = true;
       closeSlider.min = "0";
       closeSlider.max = "0";
-      document.querySelector("#close-price-selected").textContent = "â€”";
+      document.querySelector("#close-price-selected").textContent = "—";
       ["bid", "mid", "ask"].forEach(name => {
         document.querySelector(`#close-price-${name}`).textContent =
-          `${name[0].toUpperCase()}${name.slice(1)}: â€”`;
+          `${name[0].toUpperCase()}${name.slice(1)}: —`;
       });
-      document.querySelector("#close-price-help").textContent = "Loading closing quotesâ€¦";
+      document.querySelector("#close-price-help").textContent = "Loading closing quotes…";
     }
 
     function setClosePrice(value) {
@@ -936,7 +938,7 @@
     }
 
     document.querySelector("#close-preview").addEventListener("click", async () => {
-      closeStatus.textContent = `Requesting Tradier ${tradeEnv.live ? "live" : "sandbox"} previewâ€¦`;
+      closeStatus.textContent = `Requesting Tradier ${tradeEnv.live ? "live" : "sandbox"} preview…`;
       closeSubmit.disabled = true;
       try {
         const result = await requestJson("api/trades/preview", closeOrderPayload());
@@ -961,7 +963,7 @@
       const previewId = closePreviewId;
       closePreviewId = null;
       closeSubmit.disabled = true;
-      closeStatus.textContent = "Submitting closing orderâ€¦";
+      closeStatus.textContent = "Submitting closing order…";
       try {
         const result = await requestJson("api/trades/submit",
           { previewId, environment: tradeEnv.environment, confirmed: true });
@@ -1171,7 +1173,7 @@
         row.classList.toggle("short-leg", action === "SELL_TO_OPEN");
         row.classList.toggle("long-leg", action === "BUY_TO_OPEN");
         row.querySelector('[data-field="expiration-display"]').textContent =
-          expirationForAction(action) || "â€”";
+          expirationForAction(action) || "—";
         if (row.dataset.strikeRole === "center-mirror") {
           row.querySelector('[data-field="strike-display"]').textContent =
             selectedStrike(row) || "Same center strike";
@@ -1194,14 +1196,14 @@
           ? `${symbol} $${Number(strike).toLocaleString(undefined, {
             maximumFractionDigits: 3
           })} ${optionType === "CALL" ? "Call" : "Put"} (${expiration})`
-          : "â€”";
+          : "—";
         const row = document.createElement("tr");
         row.classList.add(action === "BUY_TO_OPEN" ? "long-leg" : "short-leg");
         const values = [
           option,
           action === "BUY_TO_OPEN" ? "Buy" : "Sell",
-          legRow.querySelector('[data-field="quantity"]').value || "â€”",
-          "â€”", "â€”", "â€”", "â€”", "â€”", "â€”", "â€”", "â€”", "â€”"
+          legRow.querySelector('[data-field="quantity"]').value || "—",
+          "—", "—", "—", "—", "—", "—", "—", "—", "—"
         ];
         for (const value of values) {
           const cell = document.createElement("td");
@@ -1212,7 +1214,7 @@
       }
       const positionRow = document.createElement("tr");
       positionRow.classList.add("position-total-row");
-      for (const value of ["Position total", "", "", "", "", "", "", "", "â€”", "â€”", "â€”", "â€”"]) {
+      for (const value of ["Position total", "", "", "", "", "", "", "", "—", "—", "—", "—"]) {
         const cell = document.createElement("td");
         cell.textContent = value;
         positionRow.append(cell);
@@ -1266,12 +1268,12 @@
         row.innerHTML = `
           <td>${actionCell}</td>
           <td>${optionTypeCell}</td>
-          <td data-field="expiration-display">â€”</td>
+          <td data-field="expiration-display">—</td>
           ${strikeCell}
           <td><input type="number" data-field="quantity" aria-label="Leg ${i + 1} quantity"
             min="1" max="1000" step="1" data-base="${baseQuantity}"
             value="${baseQuantity * positionMultiplier}" required></td>
-          <td data-field="otm-probability" aria-label="Probability of expiring out of the money">â€”</td>`;
+          <td data-field="otm-probability" aria-label="Probability of expiring out of the money">—</td>`;
         body.append(row);
       }
       table.append(body);
@@ -1370,7 +1372,7 @@
       }
       symbolSuggestionPanel.hidden = false;
       symbolInput.setAttribute("aria-expanded", "true");
-      symbolSearchStatus.textContent = `Searching Tradier symbols for ${query}â€¦`;
+      symbolSearchStatus.textContent = `Searching Tradier symbols for ${query}…`;
       symbolSearchTimer = setTimeout(async () => {
         const controller = new AbortController();
         symbolSearchController = controller;
@@ -1391,7 +1393,7 @@
             option.tabIndex = -1;
             option.dataset.symbol = suggestion.symbol;
             option.dataset.description = suggestion.description;
-            option.textContent = `${suggestion.symbol} â€” ${suggestion.description}`;
+            option.textContent = `${suggestion.symbol} — ${suggestion.description}`;
             option.addEventListener("mouseenter", () => setActiveSymbolSuggestion(option));
             symbolSuggestions.append(option);
           }
@@ -1521,7 +1523,7 @@
       for (const field of fields) {
         field.dataset.request = requestId;
         field.disabled = true;
-        field.replaceChildren(new Option("Loading expirationsâ€¦", ""));
+        field.replaceChildren(new Option("Loading expirations…", ""));
       }
       if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol)) {
         for (const field of fields) {
@@ -1790,7 +1792,7 @@
       const requestId = Number(row.dataset.strikeRequest || "0") + 1;
       row.dataset.strikeRequest = requestId;
       select.disabled = true;
-      select.replaceChildren(new Option("Loading strikesâ€¦", ""));
+      select.replaceChildren(new Option("Loading strikes…", ""));
       if (!expiration || !/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol)) {
         select.replaceChildren(new Option(
           expiration ? "Enter a valid symbol first" : "Choose expiration first", ""));
@@ -2064,7 +2066,7 @@
       }
       const interval = underlyingChartInterval.value;
       const intervalLabel = underlyingChartInterval.selectedOptions[0].textContent.toLowerCase();
-      underlyingChartStatus.textContent = `Loading today's ${intervalLabel} bars for ${symbol}â€¦`;
+      underlyingChartStatus.textContent = `Loading today's ${intervalLabel} bars for ${symbol}…`;
       try {
         const response = await fetch(
           `api/trades/underlying-timesales?${new URLSearchParams({ symbol, interval })}`);
@@ -2191,7 +2193,7 @@
         });
         candle.append(
           svgNode("title", {},
-            `${bar.time}: O ${currency.format(open)} H ${currency.format(high)} L ${currency.format(low)} C ${currency.format(close)} Â· volume ${Number(bar.volume).toLocaleString()}`),
+            `${bar.time}: O ${currency.format(open)} H ${currency.format(high)} L ${currency.format(low)} C ${currency.format(close)} · volume ${Number(bar.volume).toLocaleString()}`),
           svgNode("line", {
             x1: center, x2: center, y1: y(high), y2: y(low),
             stroke: color, "stroke-width": 1
@@ -2240,7 +2242,7 @@
         });
         bar.append(
           svgNode("title", {},
-            `${currency.format(centerPrice)} Â· estimated volume ${totalVolume.toLocaleString()} (${volumes.up.toLocaleString()} up, ${volumes.down.toLocaleString()} down)`),
+            `${currency.format(centerPrice)} · estimated volume ${totalVolume.toLocaleString()} (${volumes.up.toLocaleString()} up, ${volumes.down.toLocaleString()} down)`),
           ...(downWidth > 0 ? [svgNode("rect", {
             x: profileRight - barWidth, y: barY, width: downWidth, height: barHeight,
             fill: "#c44747", "fill-opacity": .82
@@ -2892,11 +2894,11 @@
       const maxLossElement = document.querySelector("#position-max-loss");
       const maxGainElement = document.querySelector("#position-max-gain");
       const formatGreek = value => value == null
-        ? "â€”" : Number(value).toLocaleString(undefined, {
+        ? "—" : Number(value).toLocaleString(undefined, {
           signDisplay: "always", maximumFractionDigits: 4
         });
       const formatPrice = value => value == null
-        ? "â€”" : Number(value).toLocaleString("en-US", {
+        ? "—" : Number(value).toLocaleString("en-US", {
           style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2
         });
       const greekRows = document.querySelector("#leg-greeks");
@@ -2917,9 +2919,9 @@
           formatPrice(leg.bid),
           formatPrice(leg.ask),
           leg.bid == null || leg.ask == null
-            ? "â€”" : formatPrice((Number(leg.bid) + Number(leg.ask)) / 2),
-          leg.openInterest == null ? "â€”" : Number(leg.openInterest).toLocaleString(),
-          "Loadingâ€¦",
+            ? "—" : formatPrice((Number(leg.bid) + Number(leg.ask)) / 2),
+          leg.openInterest == null ? "—" : Number(leg.openInterest).toLocaleString(),
+          "Loading…",
           formatGreek(leg.delta),
           formatGreek(leg.theta),
           formatGreek(leg.gamma),
@@ -2978,11 +2980,11 @@
       const result = await estimateExpirationProbabilities(quote, legsPayload());
       if (requestId !== positionMetricsRequest || quote !== activePositionQuote) return;
       profitElement.textContent = result.profit == null
-        ? "â€”" : `${(result.profit * 100).toFixed(1)}%`;
+        ? "—" : `${(result.profit * 100).toFixed(1)}%`;
       maxLossElement.textContent = result.maxLoss == null
-        ? "â€”" : `${(result.maxLoss * 100).toFixed(1)}%`;
+        ? "—" : `${(result.maxLoss * 100).toFixed(1)}%`;
       maxGainElement.textContent = result.maxGain == null
-        ? "â€”" : `${(result.maxGain * 100).toFixed(1)}%`;
+        ? "—" : `${(result.maxGain * 100).toFixed(1)}%`;
       metricsNote.textContent = [result.note, otmProbabilityError].filter(Boolean).join(" ");
     }
 
@@ -3077,7 +3079,7 @@
       const key = profitLossKey(rows);
       if (key === renderedProfitLossKey) return;
       const requestId = ++profitLossRequest;
-      profitLossStatus.textContent = "Loading underlying quote for the expiration graphâ€¦";
+      profitLossStatus.textContent = "Loading underlying quote for the expiration graph…";
       try {
         const spot = await fetchUnderlyingPrice(symbol);
         if (requestId !== profitLossRequest) return;
@@ -3104,11 +3106,11 @@
       activePositionQuote = null;
       positionMetricsRequest++;
       quoteResults.hidden = true;
-      document.querySelector("#position-profit").textContent = "â€”";
-      document.querySelector("#position-max-loss").textContent = "â€”";
-      document.querySelector("#position-max-gain").textContent = "â€”";
+      document.querySelector("#position-profit").textContent = "—";
+      document.querySelector("#position-max-loss").textContent = "—";
+      document.querySelector("#position-max-gain").textContent = "—";
       legContainer.querySelectorAll('[data-field="otm-probability"]').forEach(cell => {
-        cell.textContent = "â€”";
+        cell.textContent = "—";
         cell.removeAttribute("title");
       });
       document.querySelector("#position-metrics-note").textContent = "";
@@ -3116,9 +3118,9 @@
       positionPriceSlider.disabled = true;
       positionPriceSlider.min = "0";
       positionPriceSlider.max = "0";
-      document.querySelector("#position-price-bid").textContent = "Bid: â€”";
-      document.querySelector("#position-price-mid").textContent = "Mid: â€”";
-      document.querySelector("#position-price-ask").textContent = "Ask: â€”";
+      document.querySelector("#position-price-bid").textContent = "Bid: —";
+      document.querySelector("#position-price-mid").textContent = "Mid: —";
+      document.querySelector("#position-price-ask").textContent = "Ask: —";
       document.querySelector("#position-price-help").textContent =
         "The price slider enables after position quotes load.";
     }
@@ -3195,7 +3197,7 @@
         underlyingQuoteElement.hidden = true;
         return;
       }
-      const money = value => value == null ? "â€”" : `$${Number(value).toFixed(2)}`;
+      const money = value => value == null ? "—" : `$${Number(value).toFixed(2)}`;
       try {
         const response = await fetch(`api/trades/underlying-quote?${new URLSearchParams({ symbol })}`);
         const data = await response.json();
@@ -3322,7 +3324,7 @@
     const setStrikeOptionLabels = (select, showAtm) => {
       for (const option of select.options) {
         if (option.dataset.atm === "true") {
-          option.textContent = showAtm ? `${option.value} â€” ATM` : option.value;
+          option.textContent = showAtm ? `${option.value} — ATM` : option.value;
         }
       }
     };
@@ -3405,7 +3407,7 @@
       positionQuoteLoading = true;
       underlyingPriceRequests.delete(payload.symbol);
       status.dataset.error = "false";
-      status.textContent = "Refreshing position quotes for the selected legsâ€¦";
+      status.textContent = "Refreshing position quotes for the selected legs…";
       try {
         const result = await requestJson("api/trades/quote", payload);
         if (requestId !== positionQuoteRequest || payloadKey !== JSON.stringify(quotePayload())) return;
@@ -3454,7 +3456,7 @@
     function syncPositionPriceControl(value) {
       const price = Number(value);
       if (!Number.isFinite(price)) {
-        positionPriceSelected.textContent = "â€”";
+        positionPriceSelected.textContent = "—";
         return;
       }
       positionPriceSelected.textContent = `$${price.toFixed(2)}`;
@@ -3487,7 +3489,7 @@
       event.preventDefault();
       clearPreview();
       status.dataset.error = "false";
-      status.textContent = `Requesting Tradier ${tradeEnv.live ? "live" : "sandbox"} previewâ€¦`;
+      status.textContent = `Requesting Tradier ${tradeEnv.live ? "live" : "sandbox"} preview…`;
       const button = document.querySelector("#preview-button");
       button.disabled = true;
       try {
@@ -3502,7 +3504,7 @@
           return tr;
         }));
         document.querySelector("#preview-order-summary").textContent =
-          `${payload.symbol} ${payload.spreadType.replaceAll("_", " ")} â€” ${payload.orderType} at limit ${payload.limitPrice.toFixed(2)}`;
+          `${payload.symbol} ${payload.spreadType.replaceAll("_", " ")} — ${payload.orderType} at limit ${payload.limitPrice.toFixed(2)}`;
         document.querySelector("#broker-request").textContent =
           `POST /v1/accounts/${"{accountId}"}/orders\n` + JSON.stringify(result.brokerRequest, null, 2);
         document.querySelector("#broker-preview").textContent =
@@ -3526,7 +3528,7 @@
       activePreviewId = null;
       event.currentTarget.disabled = true;
       status.dataset.error = "false";
-      status.textContent = tradeEnv.live ? "Submitting confirmed live orderâ€¦" : "Submitting confirmed paper orderâ€¦";
+      status.textContent = tradeEnv.live ? "Submitting confirmed live order…" : "Submitting confirmed paper order…";
       try {
         const result = await requestJson("api/trades/submit", {
           previewId,

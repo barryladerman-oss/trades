@@ -85,7 +85,7 @@ public interface TradeOrderMapper {
                   @Param("quantity") int quantity);
 
     @Select("""
-            SELECT o.pk, s.symbol, o.tradierOrderId AS brokerOrderId, o.tradierPartnerId, env.code AS environment,
+            SELECT o.pk, s.symbol, o.tradierOrderId AS brokerOrderId, COALESCE(tp.name, o.tradierPartnerId) AS partner, env.code AS environment,
                    st.code AS spreadType, ot.code AS orderType, o.limitPrice, os.code AS status,
                    o.submittedAt, o.cancelledAt, NULL AS legs, NULL AS events
             FROM tradeOrders o
@@ -94,6 +94,7 @@ public interface TradeOrderMapper {
             JOIN orderTypes ot ON ot.pk = o.orderTypesFk
             JOIN orderStatuses os ON os.pk = o.orderStatusesFk
             JOIN tradeEnvironments env ON env.pk = o.tradeEnvironmentsFk
+            LEFT JOIN tradierPartners tp ON tp.tradierPartnerId = o.tradierPartnerId
             WHERE s.symbol = #{symbol} AND env.code = #{environment}
             ORDER BY o.submittedAt DESC, o.pk DESC
             """)
@@ -101,7 +102,7 @@ public interface TradeOrderMapper {
                                               @Param("environment") String environment);
 
     @Select("""
-            SELECT o.pk, s.symbol, o.tradierOrderId AS brokerOrderId, o.tradierPartnerId, env.code AS environment,
+            SELECT o.pk, s.symbol, o.tradierOrderId AS brokerOrderId, COALESCE(tp.name, o.tradierPartnerId) AS partner, env.code AS environment,
                    st.code AS spreadType, ot.code AS orderType, o.limitPrice, os.code AS status,
                    o.submittedAt, o.cancelledAt, NULL AS legs, NULL AS events
             FROM tradeOrders o
@@ -110,6 +111,7 @@ public interface TradeOrderMapper {
             JOIN orderTypes ot ON ot.pk = o.orderTypesFk
             JOIN orderStatuses os ON os.pk = o.orderStatusesFk
             JOIN tradeEnvironments env ON env.pk = o.tradeEnvironmentsFk
+            LEFT JOIN tradierPartners tp ON tp.tradierPartnerId = o.tradierPartnerId
             WHERE o.submittedAt >= #{from} AND o.submittedAt < #{toExclusive} AND env.code = #{environment}
             ORDER BY o.submittedAt DESC, o.pk DESC
             """)

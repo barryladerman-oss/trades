@@ -136,6 +136,15 @@ UPDATE spreadTypes SET description = 'Other Or Unrecognized Combination' WHERE c
 UPDATE tradeEnvironments SET description = 'Tradier Sandbox' WHERE code = 'SANDBOX';
 UPDATE tradeEnvironments SET description = 'Tradier Live' WHERE code = 'LIVE';
 
+CREATE TABLE IF NOT EXISTS tradierPartners (
+    pk INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    tradierPartnerId VARCHAR(60) NOT NULL UNIQUE,
+    name VARCHAR(60) NOT NULL
+);
+INSERT IGNORE INTO tradierPartners (tradierPartnerId, name) VALUES
+    ('be72a434-78f9-48fe-9487-742a5e3c7d3a', 'GUI Client'),
+    ('3a8bbee1-5184-4ffe-8a0c-294fbad1aee9', 'Option Alpha');
+
 CREATE TABLE IF NOT EXISTS tradeOrders (
     pk INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     ivTrackedSymbolsFk INT NOT NULL,
@@ -223,7 +232,7 @@ SELECT
     env.code AS environment,
     o.limitPrice,
     o.tradierOrderId,
-    o.tradierPartnerId,
+    COALESCE(tp.name, o.tradierPartnerId) AS tradierPartner,
     o.submittedAt,
     o.tradierStatus,
     o.filledAt,
@@ -235,7 +244,8 @@ INNER JOIN ivTrackedSymbols AS s ON s.pk = o.ivTrackedSymbolsFk
 INNER JOIN spreadTypes AS st ON st.pk = o.spreadTypesFk
 INNER JOIN orderTypes AS ot ON ot.pk = o.orderTypesFk
 INNER JOIN orderStatuses AS os ON os.pk = o.orderStatusesFk
-INNER JOIN tradeEnvironments AS env ON env.pk = o.tradeEnvironmentsFk;
+INNER JOIN tradeEnvironments AS env ON env.pk = o.tradeEnvironmentsFk
+LEFT JOIN tradierPartners AS tp ON tp.tradierPartnerId = o.tradierPartnerId;
 
 CREATE OR REPLACE VIEW tradeOrderLegDetails AS
 SELECT
@@ -245,6 +255,7 @@ SELECT
     o.orderType,
     o.status,
     o.environment,
+    o.tradierPartner,
     o.submittedAt,
     l.legIndex,
     opt.code AS optionType,
@@ -269,7 +280,7 @@ SELECT
     e.succeeded,
     e.endpoint,
     e.tradierOrderId,
-    e.tradierPartnerId,
+    COALESCE(ep.name, e.tradierPartnerId, o.tradierPartner) AS tradierPartner,
     e.requestJson,
     e.responseJson,
     e.sentAt
@@ -278,6 +289,7 @@ INNER JOIN ivTrackedSymbols AS s ON s.pk = e.ivTrackedSymbolsFk
 INNER JOIN orderEventTypes AS et ON et.pk = e.orderEventTypesFk
 INNER JOIN tradeEnvironments AS env ON env.pk = e.tradeEnvironmentsFk
 LEFT JOIN tradeOrderSummary AS o ON o.orderPk = e.tradeOrdersFk
+LEFT JOIN tradierPartners AS ep ON ep.tradierPartnerId = e.tradierPartnerId
 WHERE et.code NOT IN ('PREVIEW', 'STATUS');
 
 CREATE OR REPLACE VIEW symbolSpreadSummary AS
@@ -285,6 +297,7 @@ SELECT
     symbol,
     spreadType,
     environment,
+    tradierPartner,
     COUNT(*) AS orderCount,
     SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END) AS openCount,
     SUM(CASE WHEN status = 'FILLED' THEN 1 ELSE 0 END) AS filledCount,
@@ -292,7 +305,7 @@ SELECT
     MIN(submittedAt) AS firstSubmittedAt,
     MAX(submittedAt) AS lastSubmittedAt
 FROM tradeOrderSummary
-GROUP BY symbol, spreadType, environment;
+GROUP BY symbol, spreadType, environment, tradierPartner;
 
 CREATE TABLE IF NOT EXISTS tradingJournalLegs (
     pk INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -348,6 +361,8 @@ SELECT
     s.symbol,
     st.code AS spreadType,
     env.code AS environment,
+    (SELECT MAX(ts.tradierPartner) FROM tradeOrderSummary AS ts
+        WHERE ts.tradierOrderId = l.tradierOrderId AND ts.environment = env.code) AS tradierPartner,
     l.orderClass,
     l.orderStatus,
     l.side,
@@ -375,6 +390,8 @@ SELECT
     s.symbol,
     st.code AS spreadType,
     env.code AS environment,
+    MAX((SELECT MAX(ts.tradierPartner) FROM tradeOrderSummary AS ts
+        WHERE ts.tradierOrderId = l.tradierOrderId AND ts.environment = env.code)) AS tradierPartner,
     MAX(l.orderClass) AS orderClass,
     MAX(l.orderKind) AS orderKind,
     MAX(l.orderStatus) AS orderStatus,

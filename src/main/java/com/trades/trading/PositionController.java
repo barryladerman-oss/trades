@@ -75,7 +75,7 @@ public class PositionController {
         Map<String, List<Map<String, Object>>> byOrder = new LinkedHashMap<>();
         jdbcTemplate.queryForList("""
                 SELECT tradierOrderId, legIndex, symbol, spreadType, side, optionSymbol, legQuantity,
-                       legAvgFillPrice, CAST(orderCreatedAt AS CHAR) AS orderCreatedAt
+                       legAvgFillPrice, CAST(orderCreatedAt AS CHAR) AS orderCreatedAt, tradierPartner
                 FROM tradingJournalLegDetails
                 WHERE orderStatus = 'filled' AND environment = ?
                 ORDER BY orderCreatedAt DESC, tradierOrderId DESC, legIndex
@@ -116,7 +116,8 @@ public class PositionController {
             }
             needed.forEach((symbol, quantity) -> remaining.merge(symbol, quantity.negate(), BigDecimal::add));
             groups.add(new PositionGroup(entry.getKey(), (String) rows.get(0).get("orderCreatedAt"),
-                    (String) rows.get(0).get("symbol"), (String) rows.get(0).get("spreadType"), legs));
+                    (String) rows.get(0).get("symbol"), (String) rows.get(0).get("spreadType"),
+                    (String) rows.get(0).get("tradierPartner"), legs));
         }
 
         Map<String, List<PositionLeg>> leftovers = new LinkedHashMap<>();
@@ -137,7 +138,7 @@ public class PositionController {
             String spread = SpreadClassifier.classify(sorted.stream()
                     .map(leg -> new SpreadClassifier.Leg(leg.optionType(), leg.expiration(), leg.strike(),
                             leg.quantity())).toList());
-            groups.add(new PositionGroup(null, null, underlying, spread, sorted));
+            groups.add(new PositionGroup(null, null, underlying, spread, null, sorted));
         });
         return groups;
     }
@@ -147,6 +148,6 @@ public class PositionController {
     }
 
     public record PositionGroup(String orderId, String createdAt, String symbol, String spreadType,
-                                List<PositionLeg> legs) {
+                                String tradierPartner, List<PositionLeg> legs) {
     }
 }
