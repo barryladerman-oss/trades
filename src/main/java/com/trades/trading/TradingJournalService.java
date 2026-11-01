@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ import java.util.Locale;
 @Service
 public class TradingJournalService {
     private static final Logger LOGGER = LoggerFactory.getLogger(TradingJournalService.class);
+    private static final String OPTION_ALPHA_PARTNER_ID = "3a8bbee1-5184-4ffe-8a0c-294fbad1aee9";
 
     private final TradingJournalMapper mapper;
     private final TradeOrderMapper orderMapper;
@@ -60,9 +62,21 @@ public class TradingJournalService {
     @Transactional
     public int importOrders() {
         String environment = environmentSource.environment();
-        JsonNode orders = gateway.accountOrders().path("orders").path("order");
+        int written = importEnvironment(gateway.accountOrders(), environment);
+        String other = TradierProperties.LIVE.equals(environment) ? TradierProperties.SANDBOX : TradierProperties.LIVE;
+        if (environmentSource.available(other)) {
+            try {
+                written += importEnvironment(gateway.accountOrders(other), other);
+            } catch (RuntimeException exception) {
+                LOGGER.warn("Trading journal import for {} failed: {}", other, exception.getMessage());
+            }
+        }
+        return written;
+    }
+
+    private int importEnvironment(JsonNode response, String environment) {
         int written = 0;
-        for (JsonNode order : asList(orders)) {
+        for (JsonNode order : asList(response.path("orders").path("order"))) {
             written += importOrder(order, environment);
         }
         return written;
@@ -129,6 +143,7 @@ public class TradingJournalService {
         imported.symbolPk = symbolPk;
         imported.tradierOrderId = orderId;
         imported.environment = environment;
+        imported.tradierPartnerId = importedPartner(order, environment, created);
         imported.spreadType = spreadType;
         imported.orderType = type.toUpperCase(Locale.ROOT);
         imported.status = status;
@@ -162,6 +177,19 @@ public class TradingJournalService {
             addEvent(symbolPk, orderPk, orderId, "STATUS", "GET /v1/accounts/{accountId}/orders",
                     null, "{\"order\":" + order + "}", transacted == null ? created : transacted);
         }
+    }
+
+    /** Live orders from before today came through Option Alpha; otherwise use Tradier's own partner id if given. */
+    private String importedPartner(JsonNode order, String environment, LocalDateTime created) {
+        String partner = text(order, "partner_id");
+        if (partner != null) {
+            return partner;
+        }
+        if (TradierProperties.LIVE.equals(environment) && created != null
+                && created.toLocalDate().isBefore(LocalDate.now())) {
+            return OPTION_ALPHA_PARTNER_ID;
+        }
+        return null;
     }
 
     private void addEvent(int symbolPk, int orderPk, String orderId, String eventType, String endpoint,

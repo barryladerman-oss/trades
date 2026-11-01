@@ -25,6 +25,10 @@ public interface TradierGateway {
 
     JsonNode preview(TradeRequest trade);
 
+    default JsonNode accountOrders(String environment) {
+        throw new UnsupportedOperationException("Account order listing by environment is not supported.");
+    }
+
     default JsonNode accountOrders() {
         throw new UnsupportedOperationException("Account order listing is not supported.");
     }

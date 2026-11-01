@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
@@ -27,12 +28,12 @@ class TradierSandboxClientTests {
     @Test
     void defaultsToSandboxRejectsUnknownEnvironmentsAndGuardsLiveSwitch() {
         assertEquals("SANDBOX", new TradierEnvironment(new TradierProperties("", "t", null)).environment());
-        assertThrows(IllegalArgumentException.class, () -> new TradierProperties("", "t", "PROD"));
+        assertNotNull(assertThrows(IllegalArgumentException.class, () -> new TradierProperties("", "t", "PROD")));
         TradierEnvironment noLive = new TradierEnvironment(new TradierProperties("A", "t"));
         assertEquals(false, noLive.liveAvailable());
-        assertThrows(IllegalArgumentException.class, () -> noLive.switchTo("LIVE"));
-        assertThrows(IllegalStateException.class,
-                () -> new TradierEnvironment(new TradierProperties("A", "t", "LIVE", null, null)));
+        assertNotNull(assertThrows(IllegalArgumentException.class, () -> noLive.switchTo("LIVE")));
+        assertNotNull(assertThrows(IllegalStateException.class,
+                () -> new TradierEnvironment(new TradierProperties("A", "t", "LIVE", null, null))));
     }
 
     @Test
@@ -315,7 +316,7 @@ class TradierSandboxClientTests {
 
         org.junit.jupiter.api.Assertions.assertEquals(2, quotes.size());
         org.junit.jupiter.api.Assertions.assertEquals(new BigDecimal("1.0"), quotes.getFirst().bid());
-        org.junit.jupiter.api.Assertions.assertEquals(1234, quotes.getFirst().openInterest());
+        org.junit.jupiter.api.Assertions.assertEquals(Integer.valueOf(1234), quotes.getFirst().openInterest());
         org.junit.jupiter.api.Assertions.assertEquals(new BigDecimal("0.62"), quotes.getFirst().delta());
         org.junit.jupiter.api.Assertions.assertEquals(new BigDecimal("0.02"), quotes.getFirst().gamma());
         org.junit.jupiter.api.Assertions.assertEquals(new BigDecimal("-0.04"), quotes.getFirst().theta());

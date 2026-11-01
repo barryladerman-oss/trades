@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trades.persistence.TradingJournalMapper;
 import com.trades.trading.SpreadClassifier;
 import com.trades.trading.SpreadClassifier.Leg;
+import com.trades.trading.TradierEnvironment;
 import com.trades.trading.TradierGateway;
+import com.trades.trading.TradierProperties;
 import com.trades.trading.TradingJournalService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -99,5 +101,32 @@ class TradingJournalTests {
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT os.code FROM tradeOrders o JOIN orderStatuses os ON os.pk = o.orderStatusesFk "
                         + "WHERE o.tradierOrderId = '9001'", String.class)).isEqualTo("FILLED");
+    }
+
+    @Test
+    void importsBothEnvironmentsAndAssignsOptionAlphaToEarlierLiveOrders() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        TradierGateway gateway = mock(TradierGateway.class);
+        when(gateway.accountOrders()).thenReturn(objectMapper.readTree("{\"orders\":\"null\"}"));
+        when(gateway.accountOrders("LIVE")).thenReturn(objectMapper.readTree("""
+                {"orders":{"order":[
+                 {"id":9101,"type":"debit","symbol":"LIVEJ","side":"buy","quantity":1.0,"status":"filled",
+                  "duration":"day","price":1.5,"avg_fill_price":1.4,"exec_quantity":1.0,
+                  "create_date":"2026-10-23T18:20:46.397Z","transaction_date":"2026-10-23T18:20:46.428Z",
+                  "class":"multileg","num_legs":2,"leg":[
+                   {"id":9102,"side":"buy_to_open","quantity":1.0,"status":"filled",
+                    "option_symbol":"LIVEJ261127C00761000"},
+                   {"id":9103,"side":"sell_to_open","quantity":1.0,"status":"filled",
+                    "option_symbol":"LIVEJ261127C00766000"}]}]}}
+                """));
+        TradierEnvironment environment = new TradierEnvironment(new TradierProperties("A", "t", "SANDBOX", "L", "lt"));
+        new TradingJournalService(mapper, orderMapper, gateway, environment).importOrders();
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT tradierPartner FROM tradingJournalOrders WHERE tradierOrderId = '9101'", String.class))
+                .isEqualTo("Option Alpha");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT environment FROM tradingJournalOrders WHERE tradierOrderId = '9101'", String.class))
+                .isEqualTo("LIVE");
     }
 }

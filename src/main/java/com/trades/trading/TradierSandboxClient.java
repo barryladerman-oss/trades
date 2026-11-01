@@ -33,6 +33,8 @@ public class TradierSandboxClient implements TradierGateway {
     private static final LocalTime MARKET_CLOSE = LocalTime.of(16, 0);
 
     private final RestClient restClient;
+    private final RestClient sandboxClient;
+    private final RestClient liveClient;
     private final TradierEnvironment properties;
     private final Clock clock;
 
@@ -62,6 +64,8 @@ public class TradierSandboxClient implements TradierGateway {
                         throw exception.getCause();
                     }
                 });
+        this.sandboxClient = sandbox;
+        this.liveClient = live;
         this.properties = environment;
         this.clock = clock;
     }
@@ -353,6 +357,25 @@ public class TradierSandboxClient implements TradierGateway {
     @Override
     public java.util.Map<String, List<String>> previewRequest(TradeRequest trade) {
         return new java.util.LinkedHashMap<>(toForm(trade, true));
+    }
+
+    @Override
+    public JsonNode accountOrders(String environment) {
+        String accountId = properties.accountIdFor(environment);
+        String token = properties.tokenFor(environment);
+        if (!properties.available(environment) || !accountId.matches("[A-Za-z0-9-]+")) {
+            throw new IllegalStateException("Tradier " + environment + " credentials are not configured.");
+        }
+        JsonNode response = (TradierProperties.LIVE.equals(environment) ? liveClient : sandboxClient).get()
+                .uri("/accounts/{accountId}/orders?includeTags=true", accountId)
+                .headers(headers -> headers.setBearerAuth(token))
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(JsonNode.class);
+        if (response == null || response.has("errors")) {
+            throw new TradierRequestException("Tradier did not return the " + environment + " account orders.");
+        }
+        return response;
     }
 
     @Override
