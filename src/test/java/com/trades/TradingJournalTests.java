@@ -153,4 +153,25 @@ class TradingJournalTests {
         assertThat(rows).extracting(row -> row.get("action")).containsExactly("BTO", "STC");
         assertThat(rows).extracting(row -> row.get("tradierPartner")).containsOnly("Option Alpha");
     }
+
+    @Test
+    void combinesLegsWhoseIdsDifferOnlyByTrailingDigitIntoOneSpread() throws Exception {
+        TradierGateway gateway = mock(TradierGateway.class);
+        when(gateway.accountHistory("LIVE")).thenReturn(new ObjectMapper().readTree("""
+                {"history":{"event":[
+                 {"amount":-100.0,"date":"2026-10-28T00:00:00Z","type":"trade","trade":{"price":1.0,"quantity":1.0,
+                  "symbol":"VERTJ261127C00760000","trade_type":"option"}},
+                 {"amount":50.0,"date":"2026-10-28T00:00:00Z","type":"trade","trade":{"price":0.5,"quantity":-1.0,
+                  "symbol":"VERTJ261127C00765000","trade_type":"option"}}]}}
+                """));
+        TradierEnvironment environment = new TradierEnvironment(new TradierProperties("A", "t", "SANDBOX", "L", "lt"));
+        TradingJournalService service = new TradingJournalService(mapper, orderMapper, gateway, environment);
+
+        assertThat(service.importHistory()).isEqualTo(2);
+
+        List<Map<String, Object>> orders = jdbcTemplate.queryForList(
+                "SELECT spreadType, legCount FROM tradingJournalOrders WHERE symbol = 'VERTJ'");
+        assertThat(orders).hasSize(1);
+        assertThat(orders.get(0)).containsEntry("spreadType", "VERTICAL").containsEntry("legCount", 2L);
+    }
 }

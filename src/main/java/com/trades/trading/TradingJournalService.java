@@ -27,7 +27,9 @@ import java.util.Locale;
 public class TradingJournalService {
     private static final Logger LOGGER = LoggerFactory.getLogger(TradingJournalService.class);
     private static final String OPTION_ALPHA_PARTNER_ID = "3a8bbee1-5184-4ffe-8a0c-294fbad1aee9";
-    private static final java.util.regex.Pattern OCC_SYMBOL = java.util.regex.Pattern.compile("^([A-Z.]+)\\d{6}[CP]\\d{8}$");
+    private static final java.util.regex.Pattern OCC_SYMBOL =
+            java.util.regex.Pattern.compile("^([A-Z.]+)(\\d{6})[CP]\\d{8}$");
+    private static final java.util.regex.Pattern LEG_ID = java.util.regex.Pattern.compile("^(.+)-\\d+$");
 
     private final TradingJournalMapper mapper;
     private final TradeOrderMapper orderMapper;
@@ -109,7 +111,7 @@ public class TradingJournalService {
         events.sort(java.util.Comparator.comparing(event -> text(event, "date") == null ? "" : text(event, "date")));
         java.util.Map<String, BigDecimal> positions = new java.util.HashMap<>();
         java.util.Map<String, Integer> duplicates = new java.util.HashMap<>();
-        int written = 0;
+        List<JsonNode> fills = new ArrayList<>();
         for (JsonNode event : events) {
             String type = text(event, "type");
             if ("option".equals(type)) {
@@ -134,10 +136,11 @@ public class TradingJournalService {
             positions.put(optionSymbol, position.add(signed));
 
             String date = text(event, "date");
-            String key = date + "|" + optionSymbol;
-            int sequence = duplicates.merge(key, 1, Integer::sum);
+            String base = "H" + date.substring(0, 10).replace("-", "") + "-" + matcher.group(1) + matcher.group(2)
+                    + (closing ? "C" : "O");
+            int sequence = duplicates.merge(base, 1, Integer::sum);
             ObjectNode order = json.createObjectNode();
-            order.put("id", "H" + date.substring(0, 10).replace("-", "") + "-" + optionSymbol + "-" + sequence);
+            order.put("id", base + "-" + sequence);
             order.put("class", "option");
             order.put("symbol", matcher.group(1));
             order.put("option_symbol", optionSymbol);
@@ -151,6 +154,10 @@ public class TradingJournalService {
             order.put("exec_quantity", quantity);
             order.put("create_date", date);
             order.put("transaction_date", date);
+            fills.add(order);
+        }
+        int written = 0;
+        for (JsonNode order : mergeLegs(fills)) {
             written += importOrder(order, environment);
         }
         return written;
@@ -158,10 +165,67 @@ public class TradingJournalService {
 
     private int importEnvironment(JsonNode response, String environment) {
         int written = 0;
-        for (JsonNode order : asList(response.path("orders").path("order"))) {
+        for (JsonNode order : mergeLegs(asList(response.path("orders").path("order")))) {
             written += importOrder(order, environment);
         }
         return written;
+    }
+
+    /**
+     * Single-leg orders whose ids differ only by the digit after the final "-" are the legs of one multileg order;
+     * they are combined under the shared id prefix so the spread type is inferred from all the legs.
+     */
+    private List<JsonNode> mergeLegs(List<JsonNode> orders) {
+        java.util.Map<String, List<JsonNode>> groups = new java.util.LinkedHashMap<>();
+        List<JsonNode> result = new ArrayList<>();
+        for (JsonNode order : orders) {
+            java.util.regex.Matcher matcher = LEG_ID.matcher(order.path("id").asText(""));
+            if (matcher.matches() && !order.has("leg") && text(order, "option_symbol") != null) {
+                groups.computeIfAbsent(matcher.group(1), key -> new ArrayList<>()).add(order);
+            } else {
+                result.add(order);
+            }
+        }
+        groups.forEach((base, legs) -> result.add(legs.size() == 1 ? legs.get(0) : combine(base, legs)));
+        return result;
+    }
+
+    private JsonNode combine(String base, List<JsonNode> legs) {
+        JsonNode first = legs.get(0);
+        ObjectNode combined = json.createObjectNode();
+        combined.put("id", base);
+        combined.put("class", "multileg");
+        combined.put("symbol", text(first, "symbol"));
+        combined.put("duration", text(first, "duration"));
+        combined.put("status", text(first, "status"));
+        combined.put("create_date", text(first, "create_date"));
+        combined.put("transaction_date", text(first, "transaction_date"));
+        BigDecimal net = BigDecimal.ZERO;
+        BigDecimal quantity = null;
+        var legArray = combined.putArray("leg");
+        for (JsonNode leg : legs) {
+            BigDecimal legQuantity = decimal(leg, "quantity") == null ? BigDecimal.ONE : decimal(leg, "quantity");
+            BigDecimal price = decimal(leg, "avg_fill_price") == null ? decimal(leg, "price") : decimal(leg, "avg_fill_price");
+            boolean buy = isBuy(text(leg, "side"));
+            if (price != null) {
+                net = net.add(price.multiply(legQuantity).multiply(buy ? BigDecimal.ONE : BigDecimal.ONE.negate()));
+            }
+            quantity = quantity == null ? legQuantity : quantity.min(legQuantity);
+            legArray.add(leg);
+        }
+        String type = net.signum() > 0 ? "debit" : net.signum() < 0 ? "credit" : "even";
+        BigDecimal perSpread = net.abs().divide(quantity, 2, java.math.RoundingMode.HALF_UP);
+        combined.put("type", type);
+        combined.put("quantity", quantity);
+        combined.put("price", perSpread);
+        combined.put("avg_fill_price", perSpread);
+        combined.put("exec_quantity", quantity);
+        combined.put("num_legs", legs.size());
+        return combined;
+    }
+
+    private static boolean isBuy(String side) {
+        return side != null && side.toLowerCase(Locale.ROOT).startsWith("buy");
     }
 
     private int importOrder(JsonNode order, String environment) {
