@@ -11,18 +11,48 @@ with Tradier.
 
 ## Run
 
-Set `TRADIER_ACCOUNT_ID` and `TRADIER_ACCESS_TOKEN` in the server environment
-using credentials for a Tradier sandbox account. Never put credentials in source
-control. Start the app:
+Set `TRADIER_ACCOUNT_ID` and `TRADIER_ACCESS_TOKEN` in the server environment.
+Never put credentials in source control. By default the app uses a Tradier
+sandbox account (paper trading). Start the app:
 
 ```powershell
 mvn spring-boot:run
 ```
 
-The application listens on `http://127.0.0.1:8180` and serves the trade-entry
-form at `/`. It is bound to localhost and sends orders only to
-`https://sandbox.tradier.com`; there is no live-order endpoint or live URL
-configuration.
+On Windows, you can also start the server by running `start_server.bat` from
+the project folder. Ensure Java 25 or later and Maven 3.6.3 or later are on
+`PATH`.
+
+The application listens on `http://127.0.0.1:8280` and serves the trade-entry
+form at `/`. It is bound to localhost. Orders go to `https://sandbox.tradier.com`
+unless live trading is explicitly enabled (see below).
+
+### Sandbox and live trading
+
+The app starts in the Tradier **sandbox** (paper trading). Use the **Broker**
+dropdown under *Execution Environment* on the order-entry page to switch between
+sandbox and **LIVE** (real money) without restarting. Switching to LIVE asks you
+to type `LIVE`, then reloads the page; live mode shows a red banner and labels
+the review and confirm controls as LIVE. A preview is tied to the environment it
+was created in, so you must preview again after switching, and the server rejects
+a submit whose `environment` does not match its current one. Orders are recorded
+with environment `SANDBOX` or `LIVE`, and status polling and journal import only
+handle the current environment's orders.
+
+Each environment has its own credentials, read from the environment:
+
+| | Account | Token |
+|---|---|---|
+| Sandbox | `TRADIER_ACCOUNT_ID` | `TRADIER_ACCESS_TOKEN` |
+| Live | `TRADIER_LIVE_ACCOUNT_ID` | `TRADIER_LIVE_ACCESS_TOKEN` |
+
+The LIVE option is disabled until both live values are set. `start_server.bat live`
+(or `TRADIER_ENVIRONMENT=LIVE`) starts the app already in live mode, after you type
+`LIVE` to confirm. The current environment resets to the startup one on restart.
+The switch is also available as `POST /api/trades/environment` with
+`{"environment":"LIVE","confirmation":"LIVE"}`. Start in sandbox first, keep the
+app bound to localhost, and secure the database before enabling live trading.
+
 The default datasource connects to `jdbc:mariadb://127.0.0.1:3306/trades` as
 `root` with a blank password. The database must exist before startup; the app
 creates its tables from `schema.sql`. This local XAMPP setup uses MariaDB, which
@@ -167,9 +197,10 @@ API provides the same quote and two-step order flow:
   OHLCV bars for the underlying; the UI uses them for the price chart and
   estimated volume profile.
 - `POST /api/trades/preview` with a trade JSON body returns a preview ID and
-  Tradier's sandbox preview.
+  Tradier's preview for the configured environment.
 - `POST /api/trades/submit` with `{"previewId":"…","environment":"SANDBOX","confirmed":true}`
-  submits that exact, unexpired preview to the sandbox.
+  submits that exact, unexpired preview. `environment` must match the server
+  (`SANDBOX` or `LIVE`); `GET /api/trades/environment` reports it.
 
 ## Test
 
@@ -177,6 +208,7 @@ API provides the same quote and two-step order flow:
 mvn test
 ```
 
-Live orders are intentionally unsupported. Sandbox paper orders can still be
+Sandbox paper orders can still be
 rejected or filled using delayed market data; review every order and Tradier
-response carefully. Do not expose this local app to an untrusted network.
+response carefully. Live orders use real money and cannot be undone by this
+app. Do not expose this local app to an untrusted network.

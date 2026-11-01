@@ -43,6 +43,12 @@
     label { display: grid; gap: .25rem; font-weight: 600; }
     input, select, button { font: inherit; padding: .4rem .5rem; border: 1px solid #b7cadd; border-radius: 5px; }
     fieldset { min-width: 0; }
+    .env-selector { margin: 0 0 12px; }
+    .order-row { cursor: pointer; }
+    .order-row.expanded { background: #e8f1fb; }
+    .order-detail td { background: #f5f9fd; padding: 8px 16px; }
+    .order-detail ul { margin: 0; padding-left: 20px; }
+    .order-detail li { padding: 2px 0; }
     legend { font-weight: 700; padding: 0 .35rem; }
     .legs-table { width: 100%; border-collapse: collapse; }
     #legs { overflow-x: auto; }
@@ -155,14 +161,25 @@
       .position-metrics { grid-template-columns: 1fr; }
       .page-header { padding: 4.25rem 0 0; }
     }
+    .live-banner { background: #b00020; color: #fff; font-weight: 700; text-align: center; padding: .5rem; letter-spacing: .05em; }
   </style>
 </head>
 <body>
+  <div id="live-banner" class="live-banner" hidden>LIVE TRADING — orders are sent to your real Tradier brokerage account</div>
   <header class="page-header">
     <div>
       <h1>Options Trading</h1>
     </div>
   </header>
+  <fieldset class="env-selector">
+    <legend>Execution Environment</legend>
+    <label>Broker
+      <select id="environment">
+        <option value="SANDBOX">Tradier sandbox (paper trading)</option>
+        <option value="LIVE">Tradier LIVE (real money)</option>
+      </select>
+    </label>
+  </fieldset>
 
   <nav class="main-tabs" role="tablist">
     <button type="button" role="tab" class="active" data-tab="entry">Order Entry</button>
@@ -391,18 +408,12 @@
         <p id="position-metrics-note" class="muted"></p>
       </section>
     </fieldset>
-    <fieldset>
-      <legend>Execution Environment</legend>
-      <label>Broker
-        <select id="environment" disabled><option value="SANDBOX" selected>Tradier sandbox (paper trading only)</option></select>
-      </label>
-    </fieldset>
     <div class="actions"><button type="submit" id="preview-button">Preview Order</button></div>
   </form>
 
   <section class="review" id="review" hidden>
-    <h2>Review Sandbox Preview</h2>
-    <p>Confirm the legs, quantities, limit price, and broker preview below before submitting. This sends a paper order to Tradier's sandbox.</p>
+    <h2 id="review-heading">Review Sandbox Preview</h2>
+    <p id="review-note">Confirm the legs, quantities, limit price, and broker preview below before submitting. This sends a paper order to Tradier's sandbox.</p>
     <table id="preview-legs" class="greek-table">
       <thead><tr><th>Action</th><th>Qty</th><th>Type</th><th>Strike</th><th>Expiration</th></tr></thead>
       <tbody></tbody>
@@ -423,9 +434,57 @@
   </div>
 
   <script>
+    const tradeEnv = { environment: "SANDBOX", live: false, liveAvailable: false };
+    const environmentSelect = document.querySelector("#environment");
+    function applyEnvironment(env) {
+      tradeEnv.environment = env.environment;
+      tradeEnv.live = env.live;
+      tradeEnv.liveAvailable = env.liveAvailable;
+      environmentSelect.value = env.environment;
+      environmentSelect.querySelector('option[value="LIVE"]').disabled = !env.liveAvailable;
+      document.querySelector("#live-banner").hidden = !env.live;
+      document.title = (env.live ? "LIVE — " : "") + document.title.replace(/^LIVE — /, "");
+      document.querySelector("#review-heading").textContent = env.live ? "Review Live Preview" : "Review Sandbox Preview";
+      document.querySelector("#review-note").textContent = env.live
+        ? "Confirm the legs, quantities, limit price, and broker preview below before submitting. This sends a REAL order to your live Tradier account."
+        : "Confirm the legs, quantities, limit price, and broker preview below before submitting. This sends a paper order to Tradier's sandbox.";
+      document.querySelector("#confirm-button").textContent =
+        env.live ? "Confirm and Submit LIVE Order" : "Confirm and Submit Paper Order";
+    }
+    fetch("api/trades/environment").then(response => response.json()).then(applyEnvironment).catch(() => {});
+    environmentSelect.addEventListener("change", async () => {
+      const target = environmentSelect.value;
+      let confirmation = null;
+      if (target === "LIVE") {
+        confirmation = window.prompt(
+          "Switch to LIVE trading? Orders will be sent to your real Tradier account using real money.\n\nType LIVE to confirm.");
+        if (confirmation !== "LIVE") {
+          environmentSelect.value = tradeEnv.environment;
+          return;
+        }
+      }
+      environmentSelect.disabled = true;
+      try {
+        await requestJson("api/trades/environment", { environment: target, confirmation });
+        // Reload so quotes, orders, positions and any pending preview all reflect the new environment.
+        window.location.reload();
+      } catch (error) {
+        window.alert(error.message);
+        environmentSelect.value = tradeEnv.environment;
+        environmentSelect.disabled = false;
+      }
+    });
     const ordersStatus = document.querySelector("#orders-status");
     let loadedOrders = [];
     let ordersSort = { key: "submittedAt", direction: -1 };
+
+    const actionAbbreviations = {
+      buy_to_open: "BTO", sell_to_open: "STO", buy_to_close: "BTC", sell_to_close: "STC"
+    };
+    const actionLabel = action => {
+      const text = String(action ?? "");
+      return actionAbbreviations[text.toLowerCase()] ?? text.replaceAll("_", " ");
+    };
 
     function localDateString(date) {
       const pad = number => String(number).padStart(2, "0");
@@ -449,7 +508,7 @@
       document.querySelector("#orders-table tbody").replaceChildren(...sorted.map(order => {
         const tr = document.createElement("tr");
         const legs = order.legs.map(leg =>
-          `${leg.action.replaceAll("_", " ").toLowerCase()} ${leg.quantity} ${leg.expiration} ${leg.strike} ${leg.optionType}`)
+          `${actionLabel(leg.action)} ${leg.quantity} ${leg.expiration} ${leg.strike} ${leg.optionType}`)
           .join("; ");
         [order.submittedAt.replace("T", " "), order.symbol, order.spreadType.replaceAll("_", " "),
           order.orderType, Number(order.limitPrice).toFixed(2),
@@ -471,9 +530,37 @@
             ordersStatus.textContent = error.message;
           }
         });
-        tr.append(document.createElement("td")).append(cancelButton);
-        return tr;
-      }));
+        const actionCell = document.createElement("td");
+        actionCell.append(cancelButton);
+        tr.append(actionCell);
+
+        const detail = document.createElement("tr");
+        detail.className = "order-detail";
+        detail.hidden = true;
+        const detailCell = Object.assign(document.createElement("td"), { colSpan: 8 });
+        const list = document.createElement("ul");
+        order.legs.forEach(leg => {
+          const action = actionLabel(leg.action);
+          const kind = String(leg.optionType).toLowerCase() === "call" ? "Call" : "Put";
+          const qty = Number(leg.quantity);
+          const expiration = new Date(`${leg.expiration}T00:00:00`).toLocaleDateString(undefined,
+            { year: "numeric", month: "short", day: "numeric" });
+          const item = document.createElement("li");
+          item.textContent = `${action} ${qty} × ${order.symbol} `
+            + `${expiration} $${Number(leg.strike)} ${kind}${qty === 1 ? "" : "s"}`;
+          list.append(item);
+        });
+        detailCell.append(list);
+        detail.append(detailCell);
+        tr.classList.add("order-row");
+        tr.title = "Click to show or hide legs";
+        tr.addEventListener("click", event => {
+          if (event.target.closest("button")) return;
+          detail.hidden = !detail.hidden;
+          tr.classList.toggle("expanded", !detail.hidden);
+        });
+        return [tr, detail];
+      }).flat());
       ordersStatus.textContent = `${sorted.length} open order${sorted.length === 1 ? "" : "s"}.`;
     }
 
@@ -676,7 +763,7 @@
         order.legs.sort((a, b) => a.legIndex - b.legIndex).forEach(leg => {
           const tr = document.createElement("tr");
           tr.className = "journal-leg";
-          cells(tr, ["", "", "", "", "", leg.legIndex + 1, (leg.side ?? "").replaceAll("_", " "),
+          cells(tr, ["", "", "", "", "", leg.legIndex + 1, (leg.side ?? "") === "" ? "" : actionLabel(leg.side),
             leg.optionType ?? "", leg.expiration ?? "", number(leg.strike, 2), number(leg.legQuantity, 0),
             number(leg.legAvgFillPrice, 2)]);
           rows.push(tr);
@@ -741,7 +828,7 @@
         `${order.symbol} ${order.spreadType.replaceAll("_", " ")} — closes order ${order.tradierOrderId}`;
       document.querySelector("#close-legs tbody").replaceChildren(...legs.map(leg => {
         const tr = document.createElement("tr");
-        [leg.action.replaceAll("_", " "), leg.quantity, leg.optionType, leg.strike.toFixed(2), leg.expiration]
+        [actionLabel(leg.action), leg.quantity, leg.optionType, leg.strike.toFixed(2), leg.expiration]
           .forEach(value => tr.append(Object.assign(document.createElement("td"), { textContent: value })));
         return tr;
       }));
@@ -848,7 +935,7 @@
     }
 
     document.querySelector("#close-preview").addEventListener("click", async () => {
-      closeStatus.textContent = "Requesting Tradier sandbox preview…";
+      closeStatus.textContent = `Requesting Tradier ${tradeEnv.live ? "live" : "sandbox"} preview…`;
       closeSubmit.disabled = true;
       try {
         const result = await requestJson("api/trades/preview", closeOrderPayload());
@@ -867,14 +954,16 @@
 
     closeSubmit.addEventListener("click", async () => {
       if (!closePreviewId) return;
-      if (!window.confirm("Submit this closing order to the Tradier SANDBOX for paper trading?")) return;
+      if (!window.confirm(tradeEnv.live
+        ? "Submit this closing order to your LIVE Tradier account? This uses real money."
+        : "Submit this closing order to the Tradier SANDBOX for paper trading?")) return;
       const previewId = closePreviewId;
       closePreviewId = null;
       closeSubmit.disabled = true;
       closeStatus.textContent = "Submitting closing order…";
       try {
         const result = await requestJson("api/trades/submit",
-          { previewId, environment: "SANDBOX", confirmed: true });
+          { previewId, environment: tradeEnv.environment, confirmed: true });
         closeResponse.textContent = JSON.stringify(result, null, 2);
         closeTabs.hidden = false;
         showCloseTab("response");
@@ -3397,7 +3486,7 @@
       event.preventDefault();
       clearPreview();
       status.dataset.error = "false";
-      status.textContent = "Requesting Tradier sandbox preview…";
+      status.textContent = `Requesting Tradier ${tradeEnv.live ? "live" : "sandbox"} preview…`;
       const button = document.querySelector("#preview-button");
       button.disabled = true;
       try {
@@ -3407,7 +3496,7 @@
         const legRows = document.querySelector("#preview-legs tbody");
         legRows.replaceChildren(...payload.legs.map(leg => {
           const tr = document.createElement("tr");
-          [leg.action.replaceAll("_", " "), leg.quantity, leg.optionType, leg.strike, leg.expiration]
+          [actionLabel(leg.action), leg.quantity, leg.optionType, leg.strike, leg.expiration]
             .forEach(value => tr.append(Object.assign(document.createElement("td"), { textContent: value })));
           return tr;
         }));
@@ -3430,19 +3519,21 @@
     document.querySelector("#confirm-button").addEventListener("click", async event => {
       if (!activePreviewId) return;
       const previewId = activePreviewId;
-      if (!window.confirm("Submit this reviewed order to the Tradier SANDBOX for paper trading? No live orders are supported.")) return;
+      if (!window.confirm(tradeEnv.live
+        ? "Submit this reviewed order to your LIVE Tradier account? This is a REAL order using real money."
+        : "Submit this reviewed order to the Tradier SANDBOX for paper trading?")) return;
       activePreviewId = null;
       event.currentTarget.disabled = true;
       status.dataset.error = "false";
-      status.textContent = "Submitting confirmed paper order…";
+      status.textContent = tradeEnv.live ? "Submitting confirmed live order…" : "Submitting confirmed paper order…";
       try {
         const result = await requestJson("api/trades/submit", {
           previewId,
-          environment: document.querySelector("#environment").value,
+          environment: tradeEnv.environment,
           confirmed: true
         });
         review.hidden = true;
-        status.textContent = `Sandbox order submitted:\n${JSON.stringify(result, null, 2)}`;
+        status.textContent = `${tradeEnv.live ? "Live" : "Sandbox"} order submitted:\n${JSON.stringify(result, null, 2)}`;
       } catch (error) {
         status.dataset.error = "true";
         status.textContent = error.message;

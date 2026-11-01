@@ -26,7 +26,6 @@ import static org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE;
 
 @Component
 public class TradierSandboxClient implements TradierGateway {
-    private static final String SANDBOX_URL = "https://sandbox.tradier.com/v1";
     private static final DateTimeFormatter OPTION_EXPIRATION = DateTimeFormatter.ofPattern("yyMMdd");
     private static final DateTimeFormatter TIMESALES_DATETIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final ZoneId MARKET_TIME_ZONE = ZoneId.of("America/New_York");
@@ -34,17 +33,36 @@ public class TradierSandboxClient implements TradierGateway {
     private static final LocalTime MARKET_CLOSE = LocalTime.of(16, 0);
 
     private final RestClient restClient;
-    private final TradierProperties properties;
+    private final TradierEnvironment properties;
     private final Clock clock;
 
     @Autowired
-    public TradierSandboxClient(RestClient.Builder builder, TradierProperties properties) {
-        this(builder, properties, Clock.system(MARKET_TIME_ZONE));
+    public TradierSandboxClient(RestClient.Builder builder, TradierEnvironment environment) {
+        this(builder, environment, Clock.system(MARKET_TIME_ZONE));
+    }
+
+    TradierSandboxClient(RestClient.Builder builder, TradierProperties properties) {
+        this(builder, new TradierEnvironment(properties), Clock.system(MARKET_TIME_ZONE));
     }
 
     TradierSandboxClient(RestClient.Builder builder, TradierProperties properties, Clock clock) {
-        this.restClient = builder.baseUrl(SANDBOX_URL).build();
-        this.properties = properties;
+        this(builder, new TradierEnvironment(properties), clock);
+    }
+
+    TradierSandboxClient(RestClient.Builder builder, TradierEnvironment environment, Clock clock) {
+        RestClient sandbox = builder.clone().baseUrl(TradierEnvironment.SANDBOX_URL).build();
+        RestClient live = builder.clone().baseUrl(TradierEnvironment.LIVE_URL).build();
+        // Each call goes to the client for the environment active at that moment, so switching needs no restart.
+        this.restClient = (RestClient) java.lang.reflect.Proxy.newProxyInstance(
+                RestClient.class.getClassLoader(), new Class<?>[] {RestClient.class},
+                (proxy, method, args) -> {
+                    try {
+                        return method.invoke(environment.live() ? live : sandbox, args);
+                    } catch (java.lang.reflect.InvocationTargetException exception) {
+                        throw exception.getCause();
+                    }
+                });
+        this.properties = environment;
         this.clock = clock;
     }
 
@@ -415,7 +433,7 @@ public class TradierSandboxClient implements TradierGateway {
                 .retrieve()
                 .body(JsonNode.class);
         if (response == null || response.has("errors")) {
-            throw new TradierRequestException("Tradier did not accept the sandbox order request.");
+            throw new TradierRequestException("Tradier did not accept the " + environmentLabel() + " order request.");
         }
         return response;
     }
@@ -451,10 +469,14 @@ public class TradierSandboxClient implements TradierGateway {
         return form;
     }
 
+    private String environmentLabel() {
+        return properties.live() ? "live" : "sandbox";
+    }
+
     private void requireApiToken() {
         if (properties.token() == null || properties.token().isBlank()) {
             throw new ResponseStatusException(SERVICE_UNAVAILABLE,
-                    "Tradier sandbox market data is not configured. Set TRADIER_ACCESS_TOKEN.");
+                    "Tradier " + environmentLabel() + " market data is not configured. Set TRADIER_ACCESS_TOKEN.");
         }
     }
 
@@ -462,7 +484,7 @@ public class TradierSandboxClient implements TradierGateway {
         requireApiToken();
         if (properties.accountId() == null || properties.accountId().isBlank()) {
             throw new ResponseStatusException(SERVICE_UNAVAILABLE,
-                    "Tradier sandbox order submission is not configured. Set TRADIER_ACCOUNT_ID.");
+                    "Tradier " + environmentLabel() + " order submission is not configured. Set TRADIER_ACCOUNT_ID.");
         }
         if (!properties.accountId().matches("[A-Za-z0-9-]+")) {
             throw new IllegalStateException("TRADIER_ACCOUNT_ID contains unsupported characters.");

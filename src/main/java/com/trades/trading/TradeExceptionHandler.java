@@ -36,7 +36,7 @@ public class TradeExceptionHandler {
     @ExceptionHandler(RestClientException.class)
     ProblemDetail brokerUnavailable(RestClientException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY,
-                "Tradier sandbox request failed. Check the sandbox connection and credentials, then preview again.");
+                "Tradier request failed. Check the Tradier connection, environment and credentials, then preview again.");
     }
 
     @ExceptionHandler(TradierRequestException.class)

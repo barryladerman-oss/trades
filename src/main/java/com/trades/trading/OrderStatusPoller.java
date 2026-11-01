@@ -18,17 +18,20 @@ public class OrderStatusPoller {
     private final TradeOrderMapper mapper;
     private final TradeOrderService orders;
     private final TradierGateway gateway;
+    private final TradierEnvironment environmentSource;
 
-    public OrderStatusPoller(TradeOrderMapper mapper, TradeOrderService orders, TradierGateway gateway) {
+    public OrderStatusPoller(TradeOrderMapper mapper, TradeOrderService orders, TradierGateway gateway,
+                             TradierEnvironment environmentSource) {
         this.mapper = mapper;
         this.orders = orders;
         this.gateway = gateway;
+        this.environmentSource = environmentSource;
     }
 
     @Scheduled(initialDelayString = "${trades.order-poll.initial-delay-ms:10000}",
             fixedDelayString = "${trades.order-poll.interval-ms:30000}")
     public void pollOpenOrders() {
-        for (TradeOrderMapper.TrackedOrder order : mapper.findOpenOrders()) {
+        for (TradeOrderMapper.TrackedOrder order : mapper.findOpenOrders(environmentSource.environment())) {
             try {
                 poll(order);
             } catch (RuntimeException exception) {

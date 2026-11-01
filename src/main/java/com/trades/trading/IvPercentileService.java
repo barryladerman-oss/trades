@@ -3,6 +3,7 @@ package com.trades.trading;
 import com.trades.persistence.IvHistoryMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
@@ -10,7 +11,11 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
@@ -21,13 +26,21 @@ public class IvPercentileService {
     private static final ZoneId MARKET_TIME_ZONE = ZoneId.of("America/New_York");
     private static final int REQUIRED_OBSERVATIONS = 252;
     private static final int COMPARISON_OBSERVATIONS = REQUIRED_OBSERVATIONS - 1;
+    private static final LocalTime COLLECTION_TIME = LocalTime.of(16, 15);
 
     private final IvHistoryMapper historyMapper;
     private final TradierGateway gateway;
+    private final Clock clock;
 
+    @Autowired
     public IvPercentileService(IvHistoryMapper historyMapper, TradierGateway gateway) {
+        this(historyMapper, gateway, Clock.system(MARKET_TIME_ZONE));
+    }
+
+    IvPercentileService(IvHistoryMapper historyMapper, TradierGateway gateway, Clock clock) {
         this.historyMapper = historyMapper;
         this.gateway = gateway;
+        this.clock = clock;
     }
 
     public IvPercentile percentile(String requestedSymbol) {
@@ -36,7 +49,7 @@ public class IvPercentileService {
         }
         String symbol = requestedSymbol.toUpperCase(Locale.ROOT);
         historyMapper.trackSymbol(symbol);
-        LocalDate today = LocalDate.now(MARKET_TIME_ZONE);
+        LocalDate today = LocalDate.now(clock);
         BigDecimal currentIv = historyMapper.findSample(symbol, today);
         if (currentIv == null) currentIv = capture(symbol, today);
         List<BigDecimal> historicalIvs = historicalSamples(symbol, today);
@@ -48,11 +61,34 @@ public class IvPercentileService {
 
     @Scheduled(cron = "0 15 16 * * MON-FRI", zone = "America/New_York")
     public void collectDailySamples() {
-        LocalDate today = LocalDate.now(MARKET_TIME_ZONE);
+        collectSamples(LocalDate.now(clock), false);
+    }
+
+    /**
+     * Fills in today's sample for any tracked symbol that missed the 4:15 PM collection, for example
+     * because the app was not running. Runs at startup and hourly; does nothing before the close or on weekends.
+     */
+    @Scheduled(initialDelayString = "${trades.iv-catch-up.initial-delay-ms:30000}",
+            fixedDelayString = "${trades.iv-catch-up.interval-ms:3600000}")
+    public void collectMissingSamples() {
+        LocalDateTime now = LocalDateTime.now(clock);
+        DayOfWeek day = now.getDayOfWeek();
+        if (day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY
+                || now.toLocalTime().isBefore(COLLECTION_TIME)) {
+            return;
+        }
+        collectSamples(now.toLocalDate(), true);
+    }
+
+    private void collectSamples(LocalDate date, boolean missingOnly) {
         for (String symbol : historyMapper.findTrackedSymbols()) {
             try {
-                capture(symbol, today);
-            } catch (RestClientException | TradierRequestException | ResponseStatusException exception) {
+                if (missingOnly && historyMapper.findSample(symbol, date) != null) {
+                    continue;
+                }
+                capture(symbol, date);
+            } catch (RestClientException | TradierRequestException | ResponseStatusException
+                     | UnsupportedOperationException exception) {
                 LOGGER.warn("Unable to collect daily IV sample for {}: {}", symbol, exception.getMessage());
             }
         }

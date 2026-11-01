@@ -1,6 +1,7 @@
 package com.trades.trading;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -19,15 +20,24 @@ public class TradePreviewService {
     private final TradeValidator validator;
     private final TradierGateway gateway;
     private final TradeOrderService orders;
+    private final TradierEnvironment properties;
 
     public TradePreviewService(TradeValidator validator, TradierGateway gateway, TradeOrderService orders) {
+        this(validator, gateway, orders, new TradierEnvironment(new TradierProperties(null, null)));
+    }
+
+    @Autowired
+    public TradePreviewService(TradeValidator validator, TradierGateway gateway, TradeOrderService orders,
+                               TradierEnvironment properties) {
         this.validator = validator;
         this.gateway = gateway;
         this.orders = orders;
+        this.properties = properties;
     }
 
     public PreviewResult preview(TradeRequest trade) {
         validator.validate(trade);
+        String previewEnvironment = properties.environment();
         Instant now = Instant.now();
         pending.entrySet().removeIf(entry -> !entry.getValue().createdAt().plus(PREVIEW_LIFETIME).isAfter(now));
         if (pending.size() >= MAX_PENDING_PREVIEWS) {
@@ -41,20 +51,25 @@ public class TradePreviewService {
         } catch (RuntimeException exception) {
             throw exception;
         }
-        pending.put(previewId, new PendingTrade(trade, now));
-        return new PreviewResult(previewId, "SANDBOX", previewRequest, brokerPreview);
+        pending.put(previewId, new PendingTrade(trade, now, previewEnvironment));
+        return new PreviewResult(previewId, previewEnvironment, previewRequest, brokerPreview);
     }
 
     public JsonNode submit(String previewId, String environment, boolean confirmed) {
         if (!confirmed) {
             throw new IllegalArgumentException("Explicit order confirmation is required.");
         }
-        if (!"SANDBOX".equals(environment)) {
-            throw new IllegalArgumentException("Only the Tradier sandbox environment is supported.");
+        if (!properties.environment().equals(environment)) {
+            throw new IllegalArgumentException("The order environment must be " + properties.environment()
+                    + " to match the server's current environment.");
         }
         PendingTrade trade = pending.remove(previewId);
         if (trade == null || !trade.createdAt().plus(PREVIEW_LIFETIME).isAfter(Instant.now())) {
             throw new IllegalArgumentException("The preview is missing or expired. Preview the order again.");
+        }
+        if (!trade.environment().equals(environment)) {
+            throw new IllegalArgumentException("The preview was created in " + trade.environment()
+                    + ". Preview the order again in " + environment + ".");
         }
         java.util.Map<String, java.util.List<String>> request =
                 new java.util.LinkedHashMap<>(gateway.previewRequest(trade.trade()));
@@ -92,6 +107,6 @@ public class TradePreviewService {
                                 java.util.Map<String, java.util.List<String>> brokerRequest, JsonNode brokerPreview) {
     }
 
-    private record PendingTrade(TradeRequest trade, Instant createdAt) {
+    private record PendingTrade(TradeRequest trade, Instant createdAt, String environment) {
     }
 }

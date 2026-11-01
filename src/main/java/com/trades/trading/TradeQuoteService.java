@@ -224,7 +224,7 @@ public class TradeQuoteService {
                     "The selected order type does not produce a valid non-negative bid/ask for these legs.");
         }
 
-        return new PositionQuote("TRADIER_SANDBOX", bid.setScale(2, RoundingMode.HALF_UP),
+        return new PositionQuote("TRADIER", bid.setScale(2, RoundingMode.HALF_UP),
                 ask.setScale(2, RoundingMode.HALF_UP), Instant.now(), legQuotes,
                 hasDelta ? positionDelta : null, hasGamma ? positionGamma : null,
                 hasTheta ? positionTheta : null, hasVega ? positionVega : null,

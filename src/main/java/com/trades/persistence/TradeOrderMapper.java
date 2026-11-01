@@ -128,10 +128,11 @@ public interface TradeOrderMapper {
             FROM tradeOrders o
             JOIN ivTrackedSymbols s ON s.pk = o.ivTrackedSymbolsFk
             JOIN orderStatuses os ON os.pk = o.orderStatusesFk
-            WHERE os.code = 'OPEN' AND o.tradierOrderId IS NOT NULL
+            JOIN tradeEnvironments env ON env.pk = o.tradeEnvironmentsFk
+            WHERE os.code = 'OPEN' AND o.tradierOrderId IS NOT NULL AND env.code = #{environment}
             ORDER BY o.pk
             """)
-    List<TrackedOrder> findOpenOrders();
+    List<TrackedOrder> findOpenOrders(@Param("environment") String environment);
 
     @Update("""
             UPDATE tradeOrders

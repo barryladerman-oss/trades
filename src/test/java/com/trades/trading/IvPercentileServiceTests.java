@@ -5,13 +5,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -43,6 +47,48 @@ class IvPercentileServiceTests {
         verify(historyMapper).trackSymbol("SPY");
         verify(historyMapper).saveSample(any(), any(), any());
         verify(gateway).underlyingThirtyDayAtmIv("SPY");
+    }
+
+    @Test
+    void catchUpCollectsOnlyMissingSamplesAfterTheCloseOnWeekdays() {
+        // Friday 2026-10-23 at 17:00 New York time.
+        Clock after = Clock.fixed(Instant.parse("2026-10-23T21:00:00Z"), ZoneId.of("America/New_York"));
+        LocalDate friday = LocalDate.of(2026, 10, 23);
+        IvPercentileService catchUp = new IvPercentileService(historyMapper, gateway, after);
+        when(historyMapper.findTrackedSymbols()).thenReturn(List.of("QQQ", "SPY"));
+        when(historyMapper.findSample("SPY", friday)).thenReturn(new BigDecimal("0.2"));
+        when(historyMapper.findSample("QQQ", friday)).thenReturn(null);
+        when(gateway.underlyingThirtyDayAtmIv("QQQ")).thenReturn(new BigDecimal("0.3"));
+
+        catchUp.collectMissingSamples();
+
+        verify(historyMapper).saveSample("QQQ", friday, new BigDecimal("0.3"));
+        verify(gateway, never()).underlyingThirtyDayAtmIv("SPY");
+    }
+
+    @Test
+    void catchUpSkipsBeforeTheCloseAndOnWeekends() {
+        Clock beforeClose = Clock.fixed(Instant.parse("2026-10-23T18:00:00Z"), ZoneId.of("America/New_York"));
+        Clock saturday = Clock.fixed(Instant.parse("2026-10-24T21:00:00Z"), ZoneId.of("America/New_York"));
+        when(historyMapper.findTrackedSymbols()).thenReturn(List.of("SPY"));
+
+        new IvPercentileService(historyMapper, gateway, beforeClose).collectMissingSamples();
+        new IvPercentileService(historyMapper, gateway, saturday).collectMissingSamples();
+
+        verify(gateway, never()).underlyingThirtyDayAtmIv(any());
+    }
+
+    @Test
+    void catchUpKeepsGoingWhenOneSymbolFails() {
+        Clock after = Clock.fixed(Instant.parse("2026-10-23T21:00:00Z"), ZoneId.of("America/New_York"));
+        LocalDate friday = LocalDate.of(2026, 10, 23);
+        when(historyMapper.findTrackedSymbols()).thenReturn(List.of("BAD", "SPY"));
+        when(gateway.underlyingThirtyDayAtmIv("BAD")).thenThrow(new TradierRequestException("no data"));
+        when(gateway.underlyingThirtyDayAtmIv("SPY")).thenReturn(new BigDecimal("0.2"));
+
+        new IvPercentileService(historyMapper, gateway, after).collectMissingSamples();
+
+        verify(historyMapper).saveSample("SPY", friday, new BigDecimal("0.2"));
     }
 
     @Test

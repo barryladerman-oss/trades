@@ -27,15 +27,37 @@ public class TradeController {
     private final IvPercentileService ivPercentileService;
     private final TradeOrderService orderService;
     private final TradingJournalService journalService;
+    private final TradierEnvironment environmentSource;
 
     public TradeController(TradePreviewService service, TradeQuoteService quoteService,
                            IvPercentileService ivPercentileService, TradeOrderService orderService,
-                           TradingJournalService journalService) {
+                           TradingJournalService journalService, TradierEnvironment environmentSource) {
         this.service = service;
         this.quoteService = quoteService;
         this.ivPercentileService = ivPercentileService;
         this.orderService = orderService;
         this.journalService = journalService;
+        this.environmentSource = environmentSource;
+    }
+
+    @GetMapping("/environment")
+    public java.util.Map<String, Object> environment() {
+        return environmentStatus();
+    }
+
+    @PostMapping("/environment")
+    public java.util.Map<String, Object> switchEnvironment(@Valid @RequestBody SwitchEnvironmentRequest request) {
+        if (TradierProperties.LIVE.equalsIgnoreCase(request.environment().trim())
+                && !"LIVE".equals(request.confirmation())) {
+            throw new IllegalArgumentException("Type LIVE to confirm switching to live trading.");
+        }
+        environmentSource.switchTo(request.environment());
+        return environmentStatus();
+    }
+
+    private java.util.Map<String, Object> environmentStatus() {
+        return java.util.Map.of("environment", environmentSource.environment(), "live", environmentSource.live(),
+                "liveAvailable", environmentSource.liveAvailable());
     }
 
     @PostMapping("/journal/import")
@@ -119,6 +141,9 @@ public class TradeController {
     @PostMapping("/submit")
     public JsonNode submit(@Valid @RequestBody SubmitRequest request) {
         return service.submit(request.previewId(), request.environment(), request.confirmed());
+    }
+
+    public record SwitchEnvironmentRequest(@NotBlank String environment, String confirmation) {
     }
 
     public record SubmitRequest(
