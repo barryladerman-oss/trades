@@ -77,7 +77,7 @@ public class PositionController {
                 SELECT tradierOrderId, legIndex, symbol, spreadType, side, optionSymbol, legQuantity,
                        legAvgFillPrice, CAST(orderCreatedAt AS CHAR) AS orderCreatedAt, tradierPartner
                 FROM tradingJournalLegDetails
-                WHERE orderStatus = 'filled' AND environment = ?
+                WHERE orderStatus = 'FILLED' AND environment = ?
                 ORDER BY orderCreatedAt DESC, tradierOrderId DESC, legIndex
                 """, environmentSource.environment()).forEach(row -> byOrder.computeIfAbsent(String.valueOf(row.get("tradierOrderId")),
                 key -> new ArrayList<>()).add(row));

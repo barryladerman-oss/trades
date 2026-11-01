@@ -363,8 +363,8 @@ SELECT
     env.code AS environment,
     (SELECT MAX(ts.tradierPartner) FROM tradeOrderSummary AS ts
         WHERE ts.tradierOrderId = l.tradierOrderId AND ts.environment = env.code) AS tradierPartner,
-    l.orderClass,
-    l.orderStatus,
+    UPPER(l.orderClass) AS orderClass,
+    UPPER(l.orderStatus) AS orderStatus,
     l.side,
     opt.code AS optionType,
     act.code AS action,
@@ -392,9 +392,9 @@ SELECT
     env.code AS environment,
     MAX((SELECT MAX(ts.tradierPartner) FROM tradeOrderSummary AS ts
         WHERE ts.tradierOrderId = l.tradierOrderId AND ts.environment = env.code)) AS tradierPartner,
-    MAX(l.orderClass) AS orderClass,
+    UPPER(MAX(l.orderClass)) AS orderClass,
     MAX(l.orderKind) AS orderKind,
-    MAX(l.orderStatus) AS orderStatus,
+    UPPER(MAX(l.orderStatus)) AS orderStatus,
     MAX(l.orderQuantity) AS orderQuantity,
     MAX(l.orderPrice) AS orderPrice,
     MAX(l.orderAvgFillPrice) AS orderAvgFillPrice,
