@@ -52,6 +52,12 @@ public class TradingJournalService {
     }
 
     private boolean historyImported;
+    private StatementFills statements;
+
+    @Autowired(required = false)
+    void setStatements(StatementFills statements) {
+        this.statements = statements;
+    }
 
     @Scheduled(initialDelayString = "${trades.journal-import.initial-delay-ms:20000}",
             fixedDelayString = "${trades.journal-import.interval-ms:300000}")
@@ -110,6 +116,10 @@ public class TradingJournalService {
         java.util.Collections.reverse(events);
         events.sort(java.util.Comparator.comparing(event -> text(event, "date") == null ? "" : text(event, "date")));
         java.util.Map<String, BigDecimal> positions = new java.util.HashMap<>();
+        StatementFills.Flags flags = statements == null ? null : statements.load();
+        if (flags != null) {
+            LOGGER.info("Loaded {} fills from broker confirmations.", flags.size());
+        }
         java.util.Map<String, Integer> duplicates = new java.util.HashMap<>();
         List<JsonNode> fills = new ArrayList<>();
         for (JsonNode event : events) {
@@ -133,6 +143,11 @@ public class TradingJournalService {
             boolean buy = signed.signum() > 0;
             BigDecimal position = positions.getOrDefault(optionSymbol, BigDecimal.ZERO);
             boolean closing = buy ? position.signum() < 0 : position.signum() > 0;
+            Boolean confirmed = flags == null ? null
+                    : flags.take(text(event, "date").substring(0, 10), optionSymbol, buy, quantity);
+            if (confirmed != null) {
+                closing = confirmed;
+            }
             positions.put(optionSymbol, position.add(signed));
 
             String date = text(event, "date");
