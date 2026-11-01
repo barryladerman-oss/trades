@@ -186,8 +186,28 @@ public class TradingJournalService {
                 result.add(order);
             }
         }
-        groups.forEach((base, legs) -> result.add(legs.size() == 1 ? legs.get(0) : combine(base, legs)));
+        groups.forEach((base, legs) -> {
+            if (legs.size() > 1 && identifiable(legs)) {
+                result.add(combine(base, legs));
+            } else {
+                result.addAll(legs);
+            }
+        });
         return result;
+    }
+
+    /** Whether the legs form a recognised spread; unrecognised groups stay as separate single-leg orders. */
+    private static boolean identifiable(List<JsonNode> legs) {
+        List<SpreadClassifier.Leg> parsed = new ArrayList<>();
+        for (JsonNode leg : legs) {
+            SpreadClassifier.Leg option = SpreadClassifier.Leg.parse(text(leg, "option_symbol"), decimal(leg, "quantity"));
+            if (option == null) {
+                return false;
+            }
+            parsed.add(option);
+        }
+        String type = SpreadClassifier.classify(parsed);
+        return !"CUSTOM".equals(type) && !"SINGLE_LEG".equals(type);
     }
 
     private JsonNode combine(String base, List<JsonNode> legs) {
