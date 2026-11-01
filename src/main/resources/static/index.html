@@ -165,7 +165,7 @@
   </style>
 </head>
 <body>
-  <div id="live-banner" class="live-banner" hidden>LIVE TRADING — orders are sent to your real Tradier brokerage account</div>
+  <div id="live-banner" class="live-banner" hidden>LIVE TRADING ï¿½ orders are sent to your real Tradier brokerage account</div>
   <header class="page-header">
     <div>
       <h1>Options Trading</h1>
@@ -233,14 +233,14 @@
     <div class="position-price-control">
       <div class="position-price-heading">
         <strong>Closing Price</strong>
-        <output id="close-price-selected" for="close-price-slider">—</output>
+        <output id="close-price-selected" for="close-price-slider">ï¿½</output>
       </div>
       <input id="close-price-slider" type="range" min="0" max="0" step="0.01" disabled
         aria-label="Select a closing limit price between bid and ask">
       <div class="position-price-labels">
-        <span id="close-price-bid">Bid: —</span>
-        <span id="close-price-mid">Mid: —</span>
-        <span id="close-price-ask">Ask: —</span>
+        <span id="close-price-bid">Bid: ï¿½</span>
+        <span id="close-price-mid">Mid: ï¿½</span>
+        <span id="close-price-ask">Ask: ï¿½</span>
       </div>
       <span id="close-price-help" class="muted">The price slider enables after quotes load.</span>
     </div>
@@ -395,17 +395,17 @@
         <input id="position-price-slider" type="range" min="0" max="0" step="0.01" disabled
           aria-label="Select a position limit price between bid and ask">
         <div class="position-price-labels">
-          <span id="position-price-bid">Bid: —</span>
-          <span id="position-price-mid">Mid: —</span>
-          <span id="position-price-ask">Ask: —</span>
+          <span id="position-price-bid">Bid: ï¿½</span>
+          <span id="position-price-mid">Mid: ï¿½</span>
+          <span id="position-price-ask">Ask: ï¿½</span>
         </div>
         <span id="position-price-help" class="muted">The price slider enables after position quotes load.</span>
       </div>
       <section id="quote-results" class="quote-results" hidden aria-live="polite">
         <div class="position-metrics" aria-label="Estimated expiration probabilities">
-          <div class="position-metric"><span>Prob Profit</span><strong id="position-profit">—</strong></div>
-          <div class="position-metric"><span>Prob Max Loss</span><strong id="position-max-loss">—</strong></div>
-          <div class="position-metric"><span>Prob Max Gain:</span><strong id="position-max-gain">—</strong></div>
+          <div class="position-metric"><span>Prob Profit</span><strong id="position-profit">ï¿½</strong></div>
+          <div class="position-metric"><span>Prob Max Loss</span><strong id="position-max-loss">ï¿½</strong></div>
+          <div class="position-metric"><span>Prob Max Gain:</span><strong id="position-max-gain">ï¿½</strong></div>
         </div>
         <p id="position-metrics-note" class="muted"></p>
       </section>
@@ -445,7 +445,7 @@
       environmentSelect.value = env.environment;
       environmentSelect.querySelector('option[value="LIVE"]').disabled = !env.liveAvailable;
       document.querySelector("#live-banner").hidden = !env.live;
-      document.title = (env.live ? "LIVE — " : "") + document.title.replace(/^LIVE — /, "");
+      document.title = (env.live ? "LIVE ï¿½ " : "") + document.title.replace(/^LIVE ï¿½ /, "");
       document.querySelector("#review-heading").textContent = env.live ? "Review Live Preview" : "Review Sandbox Preview";
       document.querySelector("#review-note").textContent = env.live
         ? "Confirm the legs, quantities, limit price, and broker preview below before submitting. This sends a REAL order to your live Tradier account."
@@ -549,7 +549,7 @@
           const expiration = new Date(`${leg.expiration}T00:00:00`).toLocaleDateString(undefined,
             { year: "numeric", month: "short", day: "numeric" });
           const item = document.createElement("li");
-          item.textContent = `${action} ${qty} × ${order.symbol} `
+          item.textContent = `${action} ${qty} ï¿½ ${order.symbol} `
             + `${expiration} $${Number(leg.strike)} ${kind}${qty === 1 ? "" : "s"}`;
           list.append(item);
         });
@@ -568,7 +568,7 @@
     }
 
     async function loadOrders() {
-      ordersStatus.textContent = "Loading orders…";
+      ordersStatus.textContent = "Loading ordersï¿½";
       try {
         const response = await fetch("api/trades/orders/open");
         const data = await response.json();
@@ -610,8 +610,8 @@
       positionPlPanel.hidden = false;
       positionPlChart.replaceChildren();
       document.querySelector("#position-pl-title").textContent =
-        `${group.symbol} ${group.spreadType.replaceAll("_", " ")}${group.orderId ? ` — order ${group.orderId}` : ""}`;
-      positionPlStatus.textContent = "Loading quotes…";
+        `${group.symbol} ${group.spreadType.replaceAll("_", " ")}${group.orderId ? ` ï¿½ order ${group.orderId}` : ""}`;
+      positionPlStatus.textContent = "Loading quotesï¿½";
       try {
         const [spot, marks] = await Promise.all([fetchUnderlyingPrice(group.symbol), positionMarks(group)]);
         if (requestId !== positionPlRequest) return;
@@ -646,7 +646,7 @@
     }
 
     async function loadPositions() {
-      positionsStatus.textContent = "Loading positions…";
+      positionsStatus.textContent = "Loading positionsï¿½";
       try {
         const response = await fetch("api/trades/positions");
         const groups = await response.json();
@@ -678,7 +678,7 @@
           const actions = document.createElement("td");
           if (closable) {
             const closeButton = Object.assign(document.createElement("button"),
-              { type: "button", textContent: "Close…" });
+              { type: "button", textContent: "Closeï¿½" });
             // Reuse the close dialog by shaping the position like a filled journal order.
             closeButton.addEventListener("click", () => openCloseDialog({
               symbol: group.symbol,
@@ -719,9 +719,14 @@
         button.classList.toggle("active", button.dataset.tab === name));
       document.querySelectorAll(".tab-panel").forEach(panel => { panel.hidden = panel.id !== `tab-${name}`; });
       tabLoaders[name]?.();
+      sessionStorage.setItem("activeTab", name);
     }
     document.querySelectorAll(".main-tabs button").forEach(button =>
       button.addEventListener("click", () => showTab(button.dataset.tab)));
+    const savedTab = sessionStorage.getItem("activeTab");
+    if (savedTab && savedTab !== "entry" && document.querySelector(`.main-tabs button[data-tab="${savedTab}"]`)) {
+      showTab(savedTab);
+    }
     document.querySelectorAll("#orders-table button.sort").forEach(button =>
       button.addEventListener("click", () => {
         const key = button.dataset.sort;
@@ -777,7 +782,7 @@
     }
 
     async function loadJournal(sync) {
-      journalStatus.textContent = sync ? "Syncing from Tradier…" : "Loading journal…";
+      journalStatus.textContent = sync ? "Syncing from Tradierï¿½" : "Loading journalï¿½";
       try {
         if (sync) {
           const imported = await fetch("api/trades/journal/import", { method: "POST" });
@@ -828,7 +833,7 @@
       document.querySelector("#close-order-type").value = net > 0 ? "CREDIT" : "DEBIT";
       document.querySelector("#close-limit").value = Math.abs(net).toFixed(2);
       document.querySelector("#close-summary").textContent =
-        `${order.symbol} ${order.spreadType.replaceAll("_", " ")} — closes order ${order.tradierOrderId}`;
+        `${order.symbol} ${order.spreadType.replaceAll("_", " ")} ï¿½ closes order ${order.tradierOrderId}`;
       document.querySelector("#close-legs tbody").replaceChildren(...legs.map(leg => {
         const tr = document.createElement("tr");
         [actionLabel(leg.action), leg.quantity, leg.optionType, leg.strike.toFixed(2), leg.expiration]
@@ -853,12 +858,12 @@
       closeSlider.disabled = true;
       closeSlider.min = "0";
       closeSlider.max = "0";
-      document.querySelector("#close-price-selected").textContent = "—";
+      document.querySelector("#close-price-selected").textContent = "ï¿½";
       ["bid", "mid", "ask"].forEach(name => {
         document.querySelector(`#close-price-${name}`).textContent =
-          `${name[0].toUpperCase()}${name.slice(1)}: —`;
+          `${name[0].toUpperCase()}${name.slice(1)}: ï¿½`;
       });
-      document.querySelector("#close-price-help").textContent = "Loading closing quotes…";
+      document.querySelector("#close-price-help").textContent = "Loading closing quotesï¿½";
     }
 
     function setClosePrice(value) {
@@ -938,7 +943,7 @@
     }
 
     document.querySelector("#close-preview").addEventListener("click", async () => {
-      closeStatus.textContent = `Requesting Tradier ${tradeEnv.live ? "live" : "sandbox"} preview…`;
+      closeStatus.textContent = `Requesting Tradier ${tradeEnv.live ? "live" : "sandbox"} previewï¿½`;
       closeSubmit.disabled = true;
       try {
         const result = await requestJson("api/trades/preview", closeOrderPayload());
@@ -963,7 +968,7 @@
       const previewId = closePreviewId;
       closePreviewId = null;
       closeSubmit.disabled = true;
-      closeStatus.textContent = "Submitting closing order…";
+      closeStatus.textContent = "Submitting closing orderï¿½";
       try {
         const result = await requestJson("api/trades/submit",
           { previewId, environment: tradeEnv.environment, confirmed: true });
@@ -1173,7 +1178,7 @@
         row.classList.toggle("short-leg", action === "SELL_TO_OPEN");
         row.classList.toggle("long-leg", action === "BUY_TO_OPEN");
         row.querySelector('[data-field="expiration-display"]').textContent =
-          expirationForAction(action) || "—";
+          expirationForAction(action) || "ï¿½";
         if (row.dataset.strikeRole === "center-mirror") {
           row.querySelector('[data-field="strike-display"]').textContent =
             selectedStrike(row) || "Same center strike";
@@ -1196,14 +1201,14 @@
           ? `${symbol} $${Number(strike).toLocaleString(undefined, {
             maximumFractionDigits: 3
           })} ${optionType === "CALL" ? "Call" : "Put"} (${expiration})`
-          : "—";
+          : "ï¿½";
         const row = document.createElement("tr");
         row.classList.add(action === "BUY_TO_OPEN" ? "long-leg" : "short-leg");
         const values = [
           option,
           action === "BUY_TO_OPEN" ? "Buy" : "Sell",
-          legRow.querySelector('[data-field="quantity"]').value || "—",
-          "—", "—", "—", "—", "—", "—", "—", "—", "—"
+          legRow.querySelector('[data-field="quantity"]').value || "ï¿½",
+          "ï¿½", "ï¿½", "ï¿½", "ï¿½", "ï¿½", "ï¿½", "ï¿½", "ï¿½", "ï¿½"
         ];
         for (const value of values) {
           const cell = document.createElement("td");
@@ -1214,7 +1219,7 @@
       }
       const positionRow = document.createElement("tr");
       positionRow.classList.add("position-total-row");
-      for (const value of ["Position total", "", "", "", "", "", "", "", "—", "—", "—", "—"]) {
+      for (const value of ["Position total", "", "", "", "", "", "", "", "ï¿½", "ï¿½", "ï¿½", "ï¿½"]) {
         const cell = document.createElement("td");
         cell.textContent = value;
         positionRow.append(cell);
@@ -1268,12 +1273,12 @@
         row.innerHTML = `
           <td>${actionCell}</td>
           <td>${optionTypeCell}</td>
-          <td data-field="expiration-display">—</td>
+          <td data-field="expiration-display">ï¿½</td>
           ${strikeCell}
           <td><input type="number" data-field="quantity" aria-label="Leg ${i + 1} quantity"
             min="1" max="1000" step="1" data-base="${baseQuantity}"
             value="${baseQuantity * positionMultiplier}" required></td>
-          <td data-field="otm-probability" aria-label="Probability of expiring out of the money">—</td>`;
+          <td data-field="otm-probability" aria-label="Probability of expiring out of the money">ï¿½</td>`;
         body.append(row);
       }
       table.append(body);
@@ -1372,7 +1377,7 @@
       }
       symbolSuggestionPanel.hidden = false;
       symbolInput.setAttribute("aria-expanded", "true");
-      symbolSearchStatus.textContent = `Searching Tradier symbols for ${query}…`;
+      symbolSearchStatus.textContent = `Searching Tradier symbols for ${query}ï¿½`;
       symbolSearchTimer = setTimeout(async () => {
         const controller = new AbortController();
         symbolSearchController = controller;
@@ -1393,7 +1398,7 @@
             option.tabIndex = -1;
             option.dataset.symbol = suggestion.symbol;
             option.dataset.description = suggestion.description;
-            option.textContent = `${suggestion.symbol} — ${suggestion.description}`;
+            option.textContent = `${suggestion.symbol} ï¿½ ${suggestion.description}`;
             option.addEventListener("mouseenter", () => setActiveSymbolSuggestion(option));
             symbolSuggestions.append(option);
           }
@@ -1523,7 +1528,7 @@
       for (const field of fields) {
         field.dataset.request = requestId;
         field.disabled = true;
-        field.replaceChildren(new Option("Loading expirations…", ""));
+        field.replaceChildren(new Option("Loading expirationsï¿½", ""));
       }
       if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol)) {
         for (const field of fields) {
@@ -1792,7 +1797,7 @@
       const requestId = Number(row.dataset.strikeRequest || "0") + 1;
       row.dataset.strikeRequest = requestId;
       select.disabled = true;
-      select.replaceChildren(new Option("Loading strikes…", ""));
+      select.replaceChildren(new Option("Loading strikesï¿½", ""));
       if (!expiration || !/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol)) {
         select.replaceChildren(new Option(
           expiration ? "Enter a valid symbol first" : "Choose expiration first", ""));
@@ -2066,7 +2071,7 @@
       }
       const interval = underlyingChartInterval.value;
       const intervalLabel = underlyingChartInterval.selectedOptions[0].textContent.toLowerCase();
-      underlyingChartStatus.textContent = `Loading today's ${intervalLabel} bars for ${symbol}…`;
+      underlyingChartStatus.textContent = `Loading today's ${intervalLabel} bars for ${symbol}ï¿½`;
       try {
         const response = await fetch(
           `api/trades/underlying-timesales?${new URLSearchParams({ symbol, interval })}`);
@@ -2193,7 +2198,7 @@
         });
         candle.append(
           svgNode("title", {},
-            `${bar.time}: O ${currency.format(open)} H ${currency.format(high)} L ${currency.format(low)} C ${currency.format(close)} · volume ${Number(bar.volume).toLocaleString()}`),
+            `${bar.time}: O ${currency.format(open)} H ${currency.format(high)} L ${currency.format(low)} C ${currency.format(close)} ï¿½ volume ${Number(bar.volume).toLocaleString()}`),
           svgNode("line", {
             x1: center, x2: center, y1: y(high), y2: y(low),
             stroke: color, "stroke-width": 1
@@ -2242,7 +2247,7 @@
         });
         bar.append(
           svgNode("title", {},
-            `${currency.format(centerPrice)} · estimated volume ${totalVolume.toLocaleString()} (${volumes.up.toLocaleString()} up, ${volumes.down.toLocaleString()} down)`),
+            `${currency.format(centerPrice)} ï¿½ estimated volume ${totalVolume.toLocaleString()} (${volumes.up.toLocaleString()} up, ${volumes.down.toLocaleString()} down)`),
           ...(downWidth > 0 ? [svgNode("rect", {
             x: profileRight - barWidth, y: barY, width: downWidth, height: barHeight,
             fill: "#c44747", "fill-opacity": .82
@@ -2894,11 +2899,11 @@
       const maxLossElement = document.querySelector("#position-max-loss");
       const maxGainElement = document.querySelector("#position-max-gain");
       const formatGreek = value => value == null
-        ? "—" : Number(value).toLocaleString(undefined, {
+        ? "ï¿½" : Number(value).toLocaleString(undefined, {
           signDisplay: "always", maximumFractionDigits: 4
         });
       const formatPrice = value => value == null
-        ? "—" : Number(value).toLocaleString("en-US", {
+        ? "ï¿½" : Number(value).toLocaleString("en-US", {
           style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2
         });
       const greekRows = document.querySelector("#leg-greeks");
@@ -2919,9 +2924,9 @@
           formatPrice(leg.bid),
           formatPrice(leg.ask),
           leg.bid == null || leg.ask == null
-            ? "—" : formatPrice((Number(leg.bid) + Number(leg.ask)) / 2),
-          leg.openInterest == null ? "—" : Number(leg.openInterest).toLocaleString(),
-          "Loading…",
+            ? "ï¿½" : formatPrice((Number(leg.bid) + Number(leg.ask)) / 2),
+          leg.openInterest == null ? "ï¿½" : Number(leg.openInterest).toLocaleString(),
+          "Loadingï¿½",
           formatGreek(leg.delta),
           formatGreek(leg.theta),
           formatGreek(leg.gamma),
@@ -2980,11 +2985,11 @@
       const result = await estimateExpirationProbabilities(quote, legsPayload());
       if (requestId !== positionMetricsRequest || quote !== activePositionQuote) return;
       profitElement.textContent = result.profit == null
-        ? "—" : `${(result.profit * 100).toFixed(1)}%`;
+        ? "ï¿½" : `${(result.profit * 100).toFixed(1)}%`;
       maxLossElement.textContent = result.maxLoss == null
-        ? "—" : `${(result.maxLoss * 100).toFixed(1)}%`;
+        ? "ï¿½" : `${(result.maxLoss * 100).toFixed(1)}%`;
       maxGainElement.textContent = result.maxGain == null
-        ? "—" : `${(result.maxGain * 100).toFixed(1)}%`;
+        ? "ï¿½" : `${(result.maxGain * 100).toFixed(1)}%`;
       metricsNote.textContent = [result.note, otmProbabilityError].filter(Boolean).join(" ");
     }
 
@@ -3079,7 +3084,7 @@
       const key = profitLossKey(rows);
       if (key === renderedProfitLossKey) return;
       const requestId = ++profitLossRequest;
-      profitLossStatus.textContent = "Loading underlying quote for the expiration graph…";
+      profitLossStatus.textContent = "Loading underlying quote for the expiration graphï¿½";
       try {
         const spot = await fetchUnderlyingPrice(symbol);
         if (requestId !== profitLossRequest) return;
@@ -3106,11 +3111,11 @@
       activePositionQuote = null;
       positionMetricsRequest++;
       quoteResults.hidden = true;
-      document.querySelector("#position-profit").textContent = "—";
-      document.querySelector("#position-max-loss").textContent = "—";
-      document.querySelector("#position-max-gain").textContent = "—";
+      document.querySelector("#position-profit").textContent = "ï¿½";
+      document.querySelector("#position-max-loss").textContent = "ï¿½";
+      document.querySelector("#position-max-gain").textContent = "ï¿½";
       legContainer.querySelectorAll('[data-field="otm-probability"]').forEach(cell => {
-        cell.textContent = "—";
+        cell.textContent = "ï¿½";
         cell.removeAttribute("title");
       });
       document.querySelector("#position-metrics-note").textContent = "";
@@ -3118,9 +3123,9 @@
       positionPriceSlider.disabled = true;
       positionPriceSlider.min = "0";
       positionPriceSlider.max = "0";
-      document.querySelector("#position-price-bid").textContent = "Bid: —";
-      document.querySelector("#position-price-mid").textContent = "Mid: —";
-      document.querySelector("#position-price-ask").textContent = "Ask: —";
+      document.querySelector("#position-price-bid").textContent = "Bid: ï¿½";
+      document.querySelector("#position-price-mid").textContent = "Mid: ï¿½";
+      document.querySelector("#position-price-ask").textContent = "Ask: ï¿½";
       document.querySelector("#position-price-help").textContent =
         "The price slider enables after position quotes load.";
     }
@@ -3197,7 +3202,7 @@
         underlyingQuoteElement.hidden = true;
         return;
       }
-      const money = value => value == null ? "—" : `$${Number(value).toFixed(2)}`;
+      const money = value => value == null ? "ï¿½" : `$${Number(value).toFixed(2)}`;
       try {
         const response = await fetch(`api/trades/underlying-quote?${new URLSearchParams({ symbol })}`);
         const data = await response.json();
@@ -3324,7 +3329,7 @@
     const setStrikeOptionLabels = (select, showAtm) => {
       for (const option of select.options) {
         if (option.dataset.atm === "true") {
-          option.textContent = showAtm ? `${option.value} — ATM` : option.value;
+          option.textContent = showAtm ? `${option.value} ï¿½ ATM` : option.value;
         }
       }
     };
@@ -3407,7 +3412,7 @@
       positionQuoteLoading = true;
       underlyingPriceRequests.delete(payload.symbol);
       status.dataset.error = "false";
-      status.textContent = "Refreshing position quotes for the selected legs…";
+      status.textContent = "Refreshing position quotes for the selected legsï¿½";
       try {
         const result = await requestJson("api/trades/quote", payload);
         if (requestId !== positionQuoteRequest || payloadKey !== JSON.stringify(quotePayload())) return;
@@ -3456,7 +3461,7 @@
     function syncPositionPriceControl(value) {
       const price = Number(value);
       if (!Number.isFinite(price)) {
-        positionPriceSelected.textContent = "—";
+        positionPriceSelected.textContent = "ï¿½";
         return;
       }
       positionPriceSelected.textContent = `$${price.toFixed(2)}`;
@@ -3489,7 +3494,7 @@
       event.preventDefault();
       clearPreview();
       status.dataset.error = "false";
-      status.textContent = `Requesting Tradier ${tradeEnv.live ? "live" : "sandbox"} preview…`;
+      status.textContent = `Requesting Tradier ${tradeEnv.live ? "live" : "sandbox"} previewï¿½`;
       const button = document.querySelector("#preview-button");
       button.disabled = true;
       try {
@@ -3504,7 +3509,7 @@
           return tr;
         }));
         document.querySelector("#preview-order-summary").textContent =
-          `${payload.symbol} ${payload.spreadType.replaceAll("_", " ")} — ${payload.orderType} at limit ${payload.limitPrice.toFixed(2)}`;
+          `${payload.symbol} ${payload.spreadType.replaceAll("_", " ")} ï¿½ ${payload.orderType} at limit ${payload.limitPrice.toFixed(2)}`;
         document.querySelector("#broker-request").textContent =
           `POST /v1/accounts/${"{accountId}"}/orders\n` + JSON.stringify(result.brokerRequest, null, 2);
         document.querySelector("#broker-preview").textContent =
@@ -3528,7 +3533,7 @@
       activePreviewId = null;
       event.currentTarget.disabled = true;
       status.dataset.error = "false";
-      status.textContent = tradeEnv.live ? "Submitting confirmed live order…" : "Submitting confirmed paper order…";
+      status.textContent = tradeEnv.live ? "Submitting confirmed live orderï¿½" : "Submitting confirmed paper orderï¿½";
       try {
         const result = await requestJson("api/trades/submit", {
           previewId,
