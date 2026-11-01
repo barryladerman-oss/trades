@@ -62,7 +62,8 @@ public class TradeController {
 
     @PostMapping("/journal/import")
     public java.util.Map<String, Integer> importJournal() {
-        return java.util.Map.of("legsImported", journalService.importOrders());
+        return java.util.Map.of("legsImported", journalService.importOrders(),
+                "historyOrdersImported", journalService.importHistory());
     }
 
     @GetMapping("/orders/all")

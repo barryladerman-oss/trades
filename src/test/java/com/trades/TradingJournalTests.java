@@ -129,4 +129,28 @@ class TradingJournalTests {
                 "SELECT environment FROM tradingJournalOrders WHERE tradierOrderId = '9101'", String.class))
                 .isEqualTo("LIVE");
     }
+
+    @Test
+    void importsHistoryFillsAsJournalOrdersWithInferredOpenClose() throws Exception {
+        TradierGateway gateway = mock(TradierGateway.class);
+        when(gateway.accountHistory("LIVE")).thenReturn(new ObjectMapper().readTree("""
+                {"history":{"event":[
+                 {"amount":300.0,"date":"2026-10-30T00:00:00Z","type":"trade","trade":{"price":1.5,"quantity":-2.0,
+                  "symbol":"HISTJ261109P00280000","trade_type":"option"}},
+                 {"amount":-200.0,"date":"2026-10-29T00:00:00Z","type":"trade","trade":{"price":1.0,"quantity":2.0,
+                  "symbol":"HISTJ261109P00280000","trade_type":"option"}}]}}
+                """));
+        TradierEnvironment environment = new TradierEnvironment(new TradierProperties("A", "t", "SANDBOX", "L", "lt"));
+        TradingJournalService service = new TradingJournalService(mapper, orderMapper, gateway, environment);
+
+        assertThat(service.importHistory()).isEqualTo(2);
+        assertThat(service.importHistory()).isEqualTo(2);
+
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT l.action, o.tradierPartner FROM tradingJournalLegDetails l "
+                        + "JOIN tradingJournalOrders o ON o.tradierOrderId = l.tradierOrderId "
+                        + "WHERE o.symbol = 'HISTJ' ORDER BY l.tradierOrderId");
+        assertThat(rows).extracting(row -> row.get("action")).containsExactly("BTO", "STC");
+        assertThat(rows).extracting(row -> row.get("tradierPartner")).containsOnly("Option Alpha");
+    }
 }

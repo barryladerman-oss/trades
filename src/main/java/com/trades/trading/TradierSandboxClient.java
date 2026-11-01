@@ -360,6 +360,25 @@ public class TradierSandboxClient implements TradierGateway {
     }
 
     @Override
+    public JsonNode accountHistory(String environment) {
+        String accountId = properties.accountIdFor(environment);
+        String token = properties.tokenFor(environment);
+        if (!properties.available(environment) || !accountId.matches("[A-Za-z0-9-]+")) {
+            throw new IllegalStateException("Tradier " + environment + " credentials are not configured.");
+        }
+        JsonNode response = (TradierProperties.LIVE.equals(environment) ? liveClient : sandboxClient).get()
+                .uri("/accounts/{accountId}/history?limit=10000", accountId)
+                .headers(headers -> headers.setBearerAuth(token))
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(JsonNode.class);
+        if (response == null || response.has("errors")) {
+            throw new TradierRequestException("Tradier did not return the " + environment + " account history.");
+        }
+        return response;
+    }
+
+    @Override
     public JsonNode accountOrders(String environment) {
         String accountId = properties.accountIdFor(environment);
         String token = properties.tokenFor(environment);

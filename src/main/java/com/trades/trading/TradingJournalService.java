@@ -27,6 +27,7 @@ import java.util.Locale;
 public class TradingJournalService {
     private static final Logger LOGGER = LoggerFactory.getLogger(TradingJournalService.class);
     private static final String OPTION_ALPHA_PARTNER_ID = "3a8bbee1-5184-4ffe-8a0c-294fbad1aee9";
+    private static final java.util.regex.Pattern OCC_SYMBOL = java.util.regex.Pattern.compile("^([A-Z.]+)\\d{6}[CP]\\d{8}$");
 
     private final TradingJournalMapper mapper;
     private final TradeOrderMapper orderMapper;
@@ -48,11 +49,17 @@ public class TradingJournalService {
         this.environmentSource = environmentSource;
     }
 
+    private boolean historyImported;
+
     @Scheduled(initialDelayString = "${trades.journal-import.initial-delay-ms:20000}",
             fixedDelayString = "${trades.journal-import.interval-ms:300000}")
     public void scheduledImport() {
         try {
             importOrders();
+            if (!historyImported) {
+                historyImported = true;
+                importHistory();
+            }
         } catch (RuntimeException exception) {
             LOGGER.warn("Trading journal import failed: {}", exception.getMessage());
         }
@@ -70,6 +77,81 @@ public class TradingJournalService {
             } catch (RuntimeException exception) {
                 LOGGER.warn("Trading journal import for {} failed: {}", other, exception.getMessage());
             }
+        }
+        return written;
+    }
+
+    /**
+     * Imports earlier trades from the account history feed, which has no order ids, so each option fill becomes
+     * its own journal order. Open/close is inferred by replaying fills against a running position per contract.
+     */
+    @Transactional
+    public int importHistory() {
+        String environment = environmentSource.environment();
+        int written = 0;
+        for (String target : List.of(environment, TradierProperties.LIVE.equals(environment)
+                ? TradierProperties.SANDBOX : TradierProperties.LIVE)) {
+            if (!target.equals(environment) && !environmentSource.available(target)) {
+                continue;
+            }
+            try {
+                written += importHistoryEvents(gateway.accountHistory(target), target);
+            } catch (RuntimeException exception) {
+                LOGGER.warn("Trading journal history import for {} failed: {}", target, exception.getMessage());
+            }
+        }
+        return written;
+    }
+
+    private int importHistoryEvents(JsonNode response, String environment) {
+        List<JsonNode> events = asList(response.path("history").path("event"));
+        java.util.Collections.reverse(events);
+        events.sort(java.util.Comparator.comparing(event -> text(event, "date") == null ? "" : text(event, "date")));
+        java.util.Map<String, BigDecimal> positions = new java.util.HashMap<>();
+        java.util.Map<String, Integer> duplicates = new java.util.HashMap<>();
+        int written = 0;
+        for (JsonNode event : events) {
+            String type = text(event, "type");
+            if ("option".equals(type)) {
+                positions.remove(text(event.path("option"), "symbol"));
+                continue;
+            }
+            JsonNode trade = event.path("trade");
+            String optionSymbol = text(trade, "symbol");
+            if (!"trade".equals(type) || !"option".equals(text(trade, "trade_type")) || optionSymbol == null
+                    || decimal(trade, "quantity") == null || text(event, "date") == null) {
+                continue;
+            }
+            java.util.regex.Matcher matcher = OCC_SYMBOL.matcher(optionSymbol);
+            if (!matcher.matches()) {
+                continue;
+            }
+            BigDecimal signed = decimal(trade, "quantity");
+            BigDecimal quantity = signed.abs();
+            boolean buy = signed.signum() > 0;
+            BigDecimal position = positions.getOrDefault(optionSymbol, BigDecimal.ZERO);
+            boolean closing = buy ? position.signum() < 0 : position.signum() > 0;
+            positions.put(optionSymbol, position.add(signed));
+
+            String date = text(event, "date");
+            String key = date + "|" + optionSymbol;
+            int sequence = duplicates.merge(key, 1, Integer::sum);
+            ObjectNode order = json.createObjectNode();
+            order.put("id", "H" + date.substring(0, 10).replace("-", "") + "-" + optionSymbol + "-" + sequence);
+            order.put("class", "option");
+            order.put("symbol", matcher.group(1));
+            order.put("option_symbol", optionSymbol);
+            order.put("side", (buy ? "buy" : "sell") + (closing ? "_to_close" : "_to_open"));
+            order.put("type", buy ? "debit" : "credit");
+            order.put("status", "filled");
+            order.put("duration", "day");
+            order.put("quantity", quantity);
+            order.put("price", decimal(trade, "price"));
+            order.put("avg_fill_price", decimal(trade, "price"));
+            order.put("exec_quantity", quantity);
+            order.put("create_date", date);
+            order.put("transaction_date", date);
+            written += importOrder(order, environment);
         }
         return written;
     }
