@@ -95,7 +95,8 @@ class TradesApplicationTests {
         var gateway = org.mockito.Mockito.mock(com.trades.trading.TradierGateway.class);
         org.mockito.Mockito.when(gateway.orderStatus("777")).thenReturn(
                 new com.fasterxml.jackson.databind.ObjectMapper().readTree("{\"order\":{\"id\":777,\"status\":\"filled\"}}"));
-        var poller = new com.trades.trading.OrderStatusPoller(orderMapper, orderService, gateway);
+        var poller = new com.trades.trading.OrderStatusPoller(orderMapper, orderService, gateway,
+                new com.trades.trading.TradierEnvironment(new com.trades.trading.TradierProperties(null, null)));
 
         poller.pollOpenOrders();
         poller.pollOpenOrders();

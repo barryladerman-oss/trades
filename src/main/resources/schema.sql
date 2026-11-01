@@ -89,7 +89,8 @@ INSERT IGNORE INTO openingActions (code, description) VALUES
     ('BUY_TO_CLOSE', 'Buy to close'), ('SELL_TO_CLOSE', 'Sell to close');
 INSERT IGNORE INTO orderStatuses (code, description) VALUES
     ('OPEN', 'Open'), ('FILLED', 'Filled'), ('CANCELLED', 'Cancelled');
-INSERT IGNORE INTO tradeEnvironments (code, description) VALUES ('SANDBOX', 'Tradier sandbox');
+INSERT IGNORE INTO tradeEnvironments (code, description) VALUES
+    ('SANDBOX', 'Tradier sandbox'), ('LIVE', 'Tradier live');
 INSERT IGNORE INTO orderEventTypes (code, description) VALUES
     ('PREVIEW', 'Order preview'), ('SUBMIT', 'Order submission'),
     ('CANCEL', 'Order cancellation'), ('CLOSE', 'Order close'), ('STATUS', 'Order status poll');

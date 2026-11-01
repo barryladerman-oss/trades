@@ -8,6 +8,7 @@ import com.trades.persistence.TradingJournalMapper;
 import com.trades.persistence.TradingJournalMapper.ImportedLeg;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,18 +25,25 @@ import java.util.Locale;
 @Service
 public class TradingJournalService {
     private static final Logger LOGGER = LoggerFactory.getLogger(TradingJournalService.class);
-    private static final String ENVIRONMENT = "SANDBOX";
 
     private final TradingJournalMapper mapper;
     private final TradeOrderMapper orderMapper;
     private final TradierGateway gateway;
+    private final TradierEnvironment environmentSource;
     private final ObjectMapper json = new ObjectMapper();
 
     public TradingJournalService(TradingJournalMapper mapper, TradeOrderMapper orderMapper,
                                  TradierGateway gateway) {
+        this(mapper, orderMapper, gateway, new TradierEnvironment(new TradierProperties(null, null)));
+    }
+
+    @Autowired
+    public TradingJournalService(TradingJournalMapper mapper, TradeOrderMapper orderMapper,
+                                 TradierGateway gateway, TradierEnvironment environmentSource) {
         this.mapper = mapper;
         this.orderMapper = orderMapper;
         this.gateway = gateway;
+        this.environmentSource = environmentSource;
     }
 
     @Scheduled(initialDelayString = "${trades.journal-import.initial-delay-ms:20000}",
@@ -51,15 +59,16 @@ public class TradingJournalService {
     /** Returns the number of order legs written. */
     @Transactional
     public int importOrders() {
+        String environment = environmentSource.environment();
         JsonNode orders = gateway.accountOrders().path("orders").path("order");
         int written = 0;
         for (JsonNode order : asList(orders)) {
-            written += importOrder(order);
+            written += importOrder(order, environment);
         }
         return written;
     }
 
-    private int importOrder(JsonNode order) {
+    private int importOrder(JsonNode order, String environment) {
         String orderId = order.path("id").asText();
         String symbol = order.path("symbol").asText("").toUpperCase(Locale.ROOT);
         if (orderId.isBlank() || symbol.isBlank()) {
@@ -86,7 +95,7 @@ public class TradingJournalService {
             String side = text(leg, "side");
             mapper.upsertLeg(new ImportedLeg(
                     orderId, multileg ? text(leg, "id") : orderId, index, symbolPk, spreadType,
-                    option == null ? null : option.optionType(), action(side), ENVIRONMENT,
+                    option == null ? null : option.optionType(), action(side), environment,
                     text(order, "class"), text(order, "type"), text(order, "status"), text(order, "duration"),
                     decimal(order, "quantity"), decimal(order, "price"), decimal(order, "avg_fill_price"),
                     decimal(order, "exec_quantity"), timestamp(order, "create_date"),
@@ -96,13 +105,13 @@ public class TradingJournalService {
                     decimal(leg, "exec_quantity"), decimal(leg, "remaining_quantity"), leg.toString()));
             index++;
         }
-        syncOrder(order, orderId, symbol, symbolPk, spreadType, legNodes, parsed);
+        syncOrder(order, orderId, symbol, symbolPk, spreadType, legNodes, parsed, environment);
         return legNodes.size();
     }
 
     /** Mirrors a journal order into tradeOrders, tradeOrderLegs and tradeOrderEvents. */
     private void syncOrder(JsonNode order, String orderId, String symbol, int symbolPk, String spreadType,
-                           List<JsonNode> legNodes, List<SpreadClassifier.Leg> parsed) {
+                           List<JsonNode> legNodes, List<SpreadClassifier.Leg> parsed, String environment) {
         boolean optionOrder = !parsed.isEmpty() && parsed.stream().allMatch(leg -> leg != null)
                 && legNodes.stream().allMatch(leg -> action(text(leg, "side")) != null);
         String type = text(order, "type");
@@ -118,7 +127,7 @@ public class TradingJournalService {
         TradeOrderMapper.ImportedOrder imported = new TradeOrderMapper.ImportedOrder();
         imported.symbolPk = symbolPk;
         imported.tradierOrderId = orderId;
-        imported.environment = ENVIRONMENT;
+        imported.environment = environment;
         imported.spreadType = spreadType;
         imported.orderType = type.toUpperCase(Locale.ROOT);
         imported.status = status;

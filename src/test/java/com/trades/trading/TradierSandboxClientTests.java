@@ -25,6 +25,53 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class TradierSandboxClientTests {
     @Test
+    void defaultsToSandboxRejectsUnknownEnvironmentsAndGuardsLiveSwitch() {
+        assertEquals("SANDBOX", new TradierEnvironment(new TradierProperties("", "t", null)).environment());
+        assertThrows(IllegalArgumentException.class, () -> new TradierProperties("", "t", "PROD"));
+        TradierEnvironment noLive = new TradierEnvironment(new TradierProperties("A", "t"));
+        assertEquals(false, noLive.liveAvailable());
+        assertThrows(IllegalArgumentException.class, () -> noLive.switchTo("LIVE"));
+        assertThrows(IllegalStateException.class,
+                () -> new TradierEnvironment(new TradierProperties("A", "t", "LIVE", null, null)));
+    }
+
+    @Test
+    void liveEnvironmentUsesProductionEndpoint() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        TradierSandboxClient client = new TradierSandboxClient(builder,
+                new TradierProperties("ACCT", "live-token", "LIVE"));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString(
+                        "https://api.tradier.com/v1/markets/lookup")))
+                .andRespond(withSuccess("{\"securities\":null}", org.springframework.http.MediaType.APPLICATION_JSON));
+
+        assertEquals(List.of(), client.symbols("sp"));
+        server.verify();
+    }
+
+    @Test
+    void switchingEnvironmentAtRuntimeChangesHostAndCredentials() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        TradierEnvironment environment = new TradierEnvironment(
+                new TradierProperties("SANDBOX-ACCT", "sandbox-token", "SANDBOX", "LIVE-ACCT", "live-token"));
+        TradierSandboxClient client = new TradierSandboxClient(builder, environment, Clock.systemUTC());
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("https://sandbox.tradier.com/v1/markets/lookup")))
+                .andExpect(header("Authorization", "Bearer sandbox-token"))
+                .andRespond(withSuccess("{\"securities\":null}", org.springframework.http.MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("https://api.tradier.com/v1/markets/lookup")))
+                .andExpect(header("Authorization", "Bearer live-token"))
+                .andRespond(withSuccess("{\"securities\":null}", org.springframework.http.MediaType.APPLICATION_JSON));
+
+        client.symbols("sp");
+        environment.switchTo("live");
+        client.symbols("sp");
+
+        assertEquals("LIVE", environment.environment());
+        server.verify();
+    }
+
+    @Test
     void looksUpSymbolsForIncrementalQueries() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
