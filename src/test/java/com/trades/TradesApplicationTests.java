@@ -50,7 +50,7 @@ class TradesApplicationTests {
                 new com.fasterxml.jackson.databind.ObjectMapper()
                         .readTree("{\"order\":{\"id\":12345,\"partner_id\":\"abc\",\"status\":\"ok\"}}"));
         int orderPk = orderService.forSymbol("ORDTST").get(0).pk();
-        orderService.recordEvent("ordtst", orderPk, "prev-1", "SUBMIT", true, "POST /v1/accounts/{accountId}/orders",
+        orderService.recordEvent("ordtst", "SANDBOX", orderPk, "prev-1", "SUBMIT", true, "POST /v1/accounts/{accountId}/orders",
                 java.util.Map.of("preview", java.util.List.of("false")),
                 new com.fasterxml.jackson.databind.ObjectMapper()
                         .readTree("{\"order\":{\"id\":12345,\"partner_id\":\"abc\",\"status\":\"ok\"}}"), null);
@@ -112,9 +112,9 @@ class TradesApplicationTests {
         String symbol = "TST";
         LocalDate observationDate = LocalDate.of(2026, 10, 22);
         historyMapper.trackSymbol(symbol);
-        historyMapper.saveSample(symbol, observationDate, new BigDecimal("0.250000"));
+        historyMapper.saveSample(symbol, observationDate, new BigDecimal("0.250000"), "SANDBOX");
 
-        assertThat(historyMapper.findSample(symbol, observationDate))
+        assertThat(historyMapper.findSample(symbol, observationDate, "SANDBOX"))
                 .isEqualByComparingTo("0.250000");
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM ivDailySamples sample "

@@ -1,3 +1,12 @@
+CREATE TABLE IF NOT EXISTS tradeEnvironments (
+    pk INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(20) NOT NULL UNIQUE,
+    description VARCHAR(60) NOT NULL
+);
+
+INSERT IGNORE INTO tradeEnvironments (code, description) VALUES
+    ('SANDBOX', 'Tradier sandbox'), ('LIVE', 'Tradier live');
+
 CREATE TABLE IF NOT EXISTS ivTrackedSymbols (
     pk INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     symbol VARCHAR(10) NOT NULL UNIQUE
@@ -6,26 +15,40 @@ CREATE TABLE IF NOT EXISTS ivTrackedSymbols (
 CREATE TABLE IF NOT EXISTS ivDailySamples (
     pk INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     ivTrackedSymbolsFk INT NOT NULL,
+    tradeEnvironmentsFk INT NOT NULL,
     observationDate DATE NOT NULL,
     impliedVolatility DECIMAL(10, 6) NOT NULL,
-    CONSTRAINT uqIvDailySamplesTrackedSymbolDate
-        UNIQUE (ivTrackedSymbolsFk, observationDate),
+    CONSTRAINT uqIvDailySamplesSymbolEnvDate
+        UNIQUE (ivTrackedSymbolsFk, tradeEnvironmentsFk, observationDate),
     CONSTRAINT fkIvDailySamplesIvTrackedSymbols
         FOREIGN KEY (ivTrackedSymbolsFk) REFERENCES ivTrackedSymbols(pk)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT fkIvDailySamplesTradeEnvironments
+        FOREIGN KEY (tradeEnvironmentsFk) REFERENCES tradeEnvironments(pk)
 );
+
+-- Upgrade databases created before samples were tagged with an environment (they were all sandbox).
+ALTER TABLE ivDailySamples ADD COLUMN IF NOT EXISTS tradeEnvironmentsFk INT NULL;
+UPDATE ivDailySamples SET tradeEnvironmentsFk = (SELECT pk FROM tradeEnvironments WHERE code = 'SANDBOX')
+    WHERE tradeEnvironmentsFk IS NULL;
+ALTER TABLE ivDailySamples MODIFY COLUMN tradeEnvironmentsFk INT NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uqIvDailySamplesSymbolEnvDate
+    ON ivDailySamples (ivTrackedSymbolsFk, tradeEnvironmentsFk, observationDate);
+DROP INDEX IF EXISTS uqIvDailySamplesTrackedSymbolDate ON ivDailySamples;
 
 CREATE OR REPLACE VIEW ivHistory AS
 SELECT
     tracked.pk AS symbolPk,
     tracked.symbol,
+    env.code AS environment,
     sample.pk AS samplePk,
     sample.ivTrackedSymbolsFk,
     sample.observationDate,
     sample.impliedVolatility
 FROM ivTrackedSymbols AS tracked
 INNER JOIN ivDailySamples AS sample
-    ON sample.ivTrackedSymbolsFk = tracked.pk;
+    ON sample.ivTrackedSymbolsFk = tracked.pk
+INNER JOIN tradeEnvironments AS env ON env.pk = sample.tradeEnvironmentsFk;
 
 CREATE TABLE IF NOT EXISTS spreadTypes (
     pk INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -57,12 +80,6 @@ CREATE TABLE IF NOT EXISTS orderStatuses (
     description VARCHAR(60) NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS tradeEnvironments (
-    pk INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    code VARCHAR(20) NOT NULL UNIQUE,
-    description VARCHAR(60) NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS orderEventTypes (
     pk INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(20) NOT NULL UNIQUE,
@@ -84,13 +101,15 @@ INSERT IGNORE INTO spreadTypes (code, description) VALUES
 INSERT IGNORE INTO orderTypes (code, description) VALUES
     ('DEBIT', 'Net debit'), ('CREDIT', 'Net credit'), ('EVEN', 'Even');
 INSERT IGNORE INTO optionTypes (code, description) VALUES ('CALL', 'Call'), ('PUT', 'Put');
+UPDATE openingActions SET code = 'BTO' WHERE code = 'BUY_TO_OPEN';
+UPDATE openingActions SET code = 'STO' WHERE code = 'SELL_TO_OPEN';
+UPDATE openingActions SET code = 'BTC' WHERE code = 'BUY_TO_CLOSE';
+UPDATE openingActions SET code = 'STC' WHERE code = 'SELL_TO_CLOSE';
 INSERT IGNORE INTO openingActions (code, description) VALUES
-    ('BUY_TO_OPEN', 'Buy to open'), ('SELL_TO_OPEN', 'Sell to open'),
-    ('BUY_TO_CLOSE', 'Buy to close'), ('SELL_TO_CLOSE', 'Sell to close');
+    ('BTO', 'Buy to open'), ('STO', 'Sell to open'),
+    ('BTC', 'Buy to close'), ('STC', 'Sell to close');
 INSERT IGNORE INTO orderStatuses (code, description) VALUES
     ('OPEN', 'Open'), ('FILLED', 'Filled'), ('CANCELLED', 'Cancelled');
-INSERT IGNORE INTO tradeEnvironments (code, description) VALUES
-    ('SANDBOX', 'Tradier sandbox'), ('LIVE', 'Tradier live');
 INSERT IGNORE INTO orderEventTypes (code, description) VALUES
     ('PREVIEW', 'Order preview'), ('SUBMIT', 'Order submission'),
     ('CANCEL', 'Order cancellation'), ('CLOSE', 'Order close'), ('STATUS', 'Order status poll');
@@ -140,6 +159,7 @@ CREATE TABLE IF NOT EXISTS tradeOrderLegs (
 CREATE TABLE IF NOT EXISTS tradeOrderEvents (
     pk INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     ivTrackedSymbolsFk INT NOT NULL,
+    tradeEnvironmentsFk INT NOT NULL,
     tradeOrdersFk INT NULL,
     orderEventTypesFk INT NOT NULL,
     previewId VARCHAR(40) NULL,
@@ -156,8 +176,19 @@ CREATE TABLE IF NOT EXISTS tradeOrderEvents (
         FOREIGN KEY (tradeOrdersFk) REFERENCES tradeOrders(pk)
         ON DELETE CASCADE,
     CONSTRAINT fkTradeOrderEventsOrderEventTypes
-        FOREIGN KEY (orderEventTypesFk) REFERENCES orderEventTypes(pk)
+        FOREIGN KEY (orderEventTypesFk) REFERENCES orderEventTypes(pk),
+    CONSTRAINT fkTradeOrderEventsTradeEnvironments
+        FOREIGN KEY (tradeEnvironmentsFk) REFERENCES tradeEnvironments(pk)
 );
+
+-- Upgrade databases created before events were tagged with an environment.
+ALTER TABLE tradeOrderEvents ADD COLUMN IF NOT EXISTS tradeEnvironmentsFk INT NULL;
+UPDATE tradeOrderEvents SET tradeEnvironmentsFk =
+        (SELECT o.tradeEnvironmentsFk FROM tradeOrders AS o WHERE o.pk = tradeOrderEvents.tradeOrdersFk)
+    WHERE tradeEnvironmentsFk IS NULL AND tradeOrdersFk IS NOT NULL;
+UPDATE tradeOrderEvents SET tradeEnvironmentsFk = (SELECT pk FROM tradeEnvironments WHERE code = 'SANDBOX')
+    WHERE tradeEnvironmentsFk IS NULL;
+ALTER TABLE tradeOrderEvents MODIFY COLUMN tradeEnvironmentsFk INT NOT NULL;
 
 CREATE OR REPLACE VIEW tradeOrderSummary AS
 SELECT
@@ -193,6 +224,7 @@ SELECT
     o.spreadName,
     o.orderType,
     o.status,
+    o.environment,
     o.submittedAt,
     l.legIndex,
     opt.code AS optionType,
@@ -213,6 +245,7 @@ SELECT
     o.spreadType,
     o.spreadName,
     et.code AS eventType,
+    env.code AS environment,
     e.previewId,
     e.succeeded,
     e.endpoint,
@@ -224,6 +257,7 @@ SELECT
 FROM tradeOrderEvents AS e
 INNER JOIN ivTrackedSymbols AS s ON s.pk = e.ivTrackedSymbolsFk
 INNER JOIN orderEventTypes AS et ON et.pk = e.orderEventTypesFk
+INNER JOIN tradeEnvironments AS env ON env.pk = e.tradeEnvironmentsFk
 LEFT JOIN tradeOrderSummary AS o ON o.orderPk = e.tradeOrdersFk
 WHERE et.code NOT IN ('PREVIEW', 'STATUS');
 
@@ -232,6 +266,7 @@ SELECT
     symbol,
     spreadType,
     spreadName,
+    environment,
     COUNT(*) AS orderCount,
     SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END) AS openCount,
     SUM(CASE WHEN status = 'FILLED' THEN 1 ELSE 0 END) AS filledCount,
@@ -239,7 +274,7 @@ SELECT
     MIN(submittedAt) AS firstSubmittedAt,
     MAX(submittedAt) AS lastSubmittedAt
 FROM tradeOrderSummary
-GROUP BY symbol, spreadType, spreadName;
+GROUP BY symbol, spreadType, spreadName, environment;
 
 CREATE TABLE IF NOT EXISTS tradingJournalLegs (
     pk INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -282,6 +317,11 @@ CREATE TABLE IF NOT EXISTS tradingJournalLegs (
         FOREIGN KEY (tradeEnvironmentsFk) REFERENCES tradeEnvironments(pk)
 );
 
+UPDATE tradingJournalLegs SET side = 'BTO' WHERE side = 'buy_to_open';
+UPDATE tradingJournalLegs SET side = 'STO' WHERE side = 'sell_to_open';
+UPDATE tradingJournalLegs SET side = 'BTC' WHERE side = 'buy_to_close';
+UPDATE tradingJournalLegs SET side = 'STC' WHERE side = 'sell_to_close';
+
 CREATE OR REPLACE VIEW tradingJournalLegDetails AS
 SELECT
     l.tradierOrderId,
@@ -290,6 +330,7 @@ SELECT
     s.symbol,
     st.code AS spreadType,
     st.description AS spreadName,
+    env.code AS environment,
     l.orderClass,
     l.orderStatus,
     l.side,
@@ -307,6 +348,7 @@ SELECT
 FROM tradingJournalLegs AS l
 INNER JOIN ivTrackedSymbols AS s ON s.pk = l.ivTrackedSymbolsFk
 INNER JOIN spreadTypes AS st ON st.pk = l.spreadTypesFk
+INNER JOIN tradeEnvironments AS env ON env.pk = l.tradeEnvironmentsFk
 LEFT JOIN optionTypes AS opt ON opt.pk = l.optionTypesFk
 LEFT JOIN openingActions AS act ON act.pk = l.openingActionsFk;
 
@@ -316,6 +358,7 @@ SELECT
     s.symbol,
     st.code AS spreadType,
     st.description AS spreadName,
+    env.code AS environment,
     MAX(l.orderClass) AS orderClass,
     MAX(l.orderKind) AS orderKind,
     MAX(l.orderStatus) AS orderStatus,
@@ -331,4 +374,5 @@ SELECT
 FROM tradingJournalLegs AS l
 INNER JOIN ivTrackedSymbols AS s ON s.pk = l.ivTrackedSymbolsFk
 INNER JOIN spreadTypes AS st ON st.pk = l.spreadTypesFk
-GROUP BY l.tradierOrderId, s.symbol, st.code, st.description;
+INNER JOIN tradeEnvironments AS env ON env.pk = l.tradeEnvironmentsFk
+GROUP BY l.tradierOrderId, s.symbol, st.code, st.description, env.code;

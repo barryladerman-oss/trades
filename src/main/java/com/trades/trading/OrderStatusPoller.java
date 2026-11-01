@@ -49,7 +49,7 @@ public class OrderStatusPoller {
         }
         String status = mapStatus(tradierStatus);
         if (!tradierStatus.equals(order.tradierStatus())) {
-            orders.recordEvent(order.symbol(), order.orderPk(), null, "STATUS", true,
+            orders.recordEvent(order.symbol(), environmentSource.environment(), order.orderPk(), null, "STATUS", true,
                     "GET /v1/accounts/{accountId}/orders/" + order.tradierOrderId(), Map.of(), response, null);
         }
         mapper.updateStatus(order.orderPk(), status, tradierStatus);

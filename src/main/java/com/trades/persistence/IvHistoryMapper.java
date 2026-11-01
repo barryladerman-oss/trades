@@ -23,27 +23,34 @@ public interface IvHistoryMapper {
             SELECT sample.impliedVolatility
             FROM ivDailySamples sample
             JOIN ivTrackedSymbols tracked ON tracked.pk = sample.ivTrackedSymbolsFk
+            JOIN tradeEnvironments env ON env.pk = sample.tradeEnvironmentsFk
             WHERE tracked.symbol = #{symbol} AND sample.observationDate = #{observationDate}
+              AND env.code = #{environment}
             """)
     BigDecimal findSample(@Param("symbol") String symbol,
-                          @Param("observationDate") LocalDate observationDate);
+                          @Param("observationDate") LocalDate observationDate,
+                          @Param("environment") String environment);
 
     @Insert("""
-            INSERT INTO ivDailySamples (ivTrackedSymbolsFk, observationDate, impliedVolatility)
-            SELECT pk, #{observationDate}, #{impliedVolatility}
-            FROM ivTrackedSymbols
-            WHERE symbol = #{symbol}
+            INSERT INTO ivDailySamples (ivTrackedSymbolsFk, tradeEnvironmentsFk, observationDate, impliedVolatility)
+            SELECT tracked.pk, env.pk, #{observationDate}, #{impliedVolatility}
+            FROM ivTrackedSymbols tracked
+            JOIN tradeEnvironments env ON env.code = #{environment}
+            WHERE tracked.symbol = #{symbol}
             ON DUPLICATE KEY UPDATE impliedVolatility = VALUES(impliedVolatility)
             """)
     int saveSample(@Param("symbol") String symbol,
                    @Param("observationDate") LocalDate observationDate,
-                   @Param("impliedVolatility") BigDecimal impliedVolatility);
+                   @Param("impliedVolatility") BigDecimal impliedVolatility,
+                   @Param("environment") String environment);
 
     @Select("""
             SELECT sample.impliedVolatility
             FROM ivDailySamples sample
             JOIN ivTrackedSymbols tracked ON tracked.pk = sample.ivTrackedSymbolsFk
+            JOIN tradeEnvironments env ON env.pk = sample.tradeEnvironmentsFk
             WHERE tracked.symbol = #{symbol}
+              AND env.code = #{environment}
               AND sample.observationDate >= #{startDate}
               AND sample.observationDate < #{endDate}
             ORDER BY sample.observationDate DESC
@@ -52,7 +59,8 @@ public interface IvHistoryMapper {
     List<BigDecimal> findHistoricalSamples(@Param("symbol") String symbol,
                                            @Param("startDate") LocalDate startDate,
                                            @Param("endDate") LocalDate endDate,
-                                           @Param("limit") int limit);
+                                           @Param("limit") int limit,
+                                           @Param("environment") String environment);
 
     @Select("""
             SELECT symbol

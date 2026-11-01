@@ -78,13 +78,14 @@ public class TradePreviewService {
         try {
             response = gateway.submit(trade.trade());
         } catch (RuntimeException exception) {
-            recordEvent(trade.trade(), null, previewId, "SUBMIT", false, request, null, exception.getMessage());
+            recordEvent(trade.trade(), environment, null, previewId, "SUBMIT", false, request, null,
+                    exception.getMessage());
             throw exception;
         }
         try {
             int orderPk = orders.record(trade.trade(), environment, response);
-            orders.recordEvent(trade.trade().symbol(), orderPk, previewId, "SUBMIT", true, ORDERS_ENDPOINT,
-                    request, response, null);
+            orders.recordEvent(trade.trade().symbol(), environment, orderPk, previewId, "SUBMIT", true,
+                    ORDERS_ENDPOINT, request, response, null);
         } catch (RuntimeException exception) {
             // The broker already accepted the order, so a recording failure must not hide that.
             LOGGER.error("Order was submitted to the broker but could not be recorded.", exception);
@@ -92,12 +93,13 @@ public class TradePreviewService {
         return response;
     }
 
-    private void recordEvent(TradeRequest trade, Integer orderPk, String previewId, String eventType,
-                             boolean succeeded, java.util.Map<String, java.util.List<String>> request,
+    private void recordEvent(TradeRequest trade, String environment, Integer orderPk, String previewId,
+                             String eventType, boolean succeeded,
+                             java.util.Map<String, java.util.List<String>> request,
                              JsonNode response, String error) {
         try {
-            orders.recordEvent(trade.symbol(), orderPk, previewId, eventType, succeeded, ORDERS_ENDPOINT,
-                    request, response, error);
+            orders.recordEvent(trade.symbol(), environment, orderPk, previewId, eventType, succeeded,
+                    ORDERS_ENDPOINT, request, response, error);
         } catch (RuntimeException exception) {
             LOGGER.error("Could not record the {} event.", eventType, exception);
         }

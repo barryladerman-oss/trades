@@ -481,6 +481,7 @@
     const actionAbbreviations = {
       buy_to_open: "BTO", sell_to_open: "STO", buy_to_close: "BTC", sell_to_close: "STC"
     };
+    const isBuySide = side => /^(buy|bt)/i.test(side ?? "");
     const actionLabel = action => {
       const text = String(action ?? "");
       return actionAbbreviations[text.toLowerCase()] ?? text.replaceAll("_", " ");
@@ -813,12 +814,12 @@
         optionType: leg.optionType,
         expiration: leg.expiration,
         strike: Number(leg.strike),
-        action: leg.side.startsWith("buy") ? "SELL_TO_CLOSE" : "BUY_TO_CLOSE",
+        action: isBuySide(leg.side) ? "SELL_TO_CLOSE" : "BUY_TO_CLOSE",
         quantity: Math.round(Number(leg.legQuantity))
       }));
       // Closing a net-debit position is a credit, and the reverse.
       const net = order.legs.reduce((total, leg) =>
-        total + (leg.side.startsWith("buy") ? 1 : -1) * Number(leg.legAvgFillPrice ?? 0), 0);
+        total + (isBuySide(leg.side) ? 1 : -1) * Number(leg.legAvgFillPrice ?? 0), 0);
       closePayload = { symbol: order.symbol, spreadType: order.spreadType, legs };
       closePreviewId = null;
       closeSubmit.disabled = true;

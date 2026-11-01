@@ -23,13 +23,15 @@ public class PositionController {
     private final OrderStatusPoller poller;
     private final TradeOrderService orders;
     private final JdbcTemplate jdbcTemplate;
+    private final TradierEnvironment environmentSource;
 
     public PositionController(TradierGateway gateway, OrderStatusPoller poller, TradeOrderService orders,
-                              JdbcTemplate jdbcTemplate) {
+                              JdbcTemplate jdbcTemplate, TradierEnvironment environmentSource) {
         this.gateway = gateway;
         this.poller = poller;
         this.orders = orders;
         this.jdbcTemplate = jdbcTemplate;
+        this.environmentSource = environmentSource;
     }
 
     @GetMapping("/orders/open")
@@ -75,21 +77,21 @@ public class PositionController {
                 SELECT tradierOrderId, legIndex, symbol, spreadType, side, optionSymbol, legQuantity,
                        legAvgFillPrice, CAST(orderCreatedAt AS CHAR) AS orderCreatedAt
                 FROM tradingJournalLegDetails
-                WHERE orderStatus = 'filled'
+                WHERE orderStatus = 'filled' AND environment = ?
                 ORDER BY orderCreatedAt DESC, tradierOrderId DESC, legIndex
-                """).forEach(row -> byOrder.computeIfAbsent(String.valueOf(row.get("tradierOrderId")),
+                """, environmentSource.environment()).forEach(row -> byOrder.computeIfAbsent(String.valueOf(row.get("tradierOrderId")),
                 key -> new ArrayList<>()).add(row));
 
         for (Map.Entry<String, List<Map<String, Object>>> entry : byOrder.entrySet()) {
             List<Map<String, Object>> rows = entry.getValue();
-            if (!rows.stream().allMatch(row -> String.valueOf(row.get("side")).endsWith("_to_open")
+            if (!rows.stream().allMatch(row -> List.of("BTO", "STO").contains(String.valueOf(row.get("side")))
                     && row.get("optionSymbol") != null && row.get("legQuantity") != null)) {
                 continue;
             }
             Map<String, BigDecimal> needed = new LinkedHashMap<>();
             for (Map<String, Object> row : rows) {
                 BigDecimal quantity = new BigDecimal(row.get("legQuantity").toString());
-                if (String.valueOf(row.get("side")).startsWith("sell")) {
+                if ("STO".equals(String.valueOf(row.get("side")))) {
                     quantity = quantity.negate();
                 }
                 needed.merge((String) row.get("optionSymbol"), quantity, BigDecimal::add);

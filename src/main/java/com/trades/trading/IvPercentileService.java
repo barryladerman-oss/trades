@@ -30,16 +30,20 @@ public class IvPercentileService {
 
     private final IvHistoryMapper historyMapper;
     private final TradierGateway gateway;
+    private final TradierEnvironment environmentSource;
     private final Clock clock;
 
     @Autowired
-    public IvPercentileService(IvHistoryMapper historyMapper, TradierGateway gateway) {
-        this(historyMapper, gateway, Clock.system(MARKET_TIME_ZONE));
+    public IvPercentileService(IvHistoryMapper historyMapper, TradierGateway gateway,
+                               TradierEnvironment environmentSource) {
+        this(historyMapper, gateway, environmentSource, Clock.system(MARKET_TIME_ZONE));
     }
 
-    IvPercentileService(IvHistoryMapper historyMapper, TradierGateway gateway, Clock clock) {
+    IvPercentileService(IvHistoryMapper historyMapper, TradierGateway gateway,
+                        TradierEnvironment environmentSource, Clock clock) {
         this.historyMapper = historyMapper;
         this.gateway = gateway;
+        this.environmentSource = environmentSource;
         this.clock = clock;
     }
 
@@ -48,11 +52,12 @@ public class IvPercentileService {
             throw new IllegalArgumentException("Enter a valid underlying symbol to load its IV percentile.");
         }
         String symbol = requestedSymbol.toUpperCase(Locale.ROOT);
+        String environment = environmentSource.environment();
         historyMapper.trackSymbol(symbol);
         LocalDate today = LocalDate.now(clock);
-        BigDecimal currentIv = historyMapper.findSample(symbol, today);
-        if (currentIv == null) currentIv = capture(symbol, today);
-        List<BigDecimal> historicalIvs = historicalSamples(symbol, today);
+        BigDecimal currentIv = historyMapper.findSample(symbol, today, environment);
+        if (currentIv == null) currentIv = capture(symbol, today, environment);
+        List<BigDecimal> historicalIvs = historicalSamples(symbol, today, environment);
         BigDecimal percentile = percentileRank(currentIv, historicalIvs);
         int observationCount = Math.min(historicalIvs.size() + 1, REQUIRED_OBSERVATIONS);
         return new IvPercentile(symbol, currentIv, percentile, observationCount,
@@ -81,12 +86,13 @@ public class IvPercentileService {
     }
 
     private void collectSamples(LocalDate date, boolean missingOnly) {
+        String environment = environmentSource.environment();
         for (String symbol : historyMapper.findTrackedSymbols()) {
             try {
-                if (missingOnly && historyMapper.findSample(symbol, date) != null) {
+                if (missingOnly && historyMapper.findSample(symbol, date, environment) != null) {
                     continue;
                 }
-                capture(symbol, date);
+                capture(symbol, date, environment);
             } catch (RestClientException | TradierRequestException | ResponseStatusException
                      | UnsupportedOperationException exception) {
                 LOGGER.warn("Unable to collect daily IV sample for {}: {}", symbol, exception.getMessage());
@@ -94,19 +100,19 @@ public class IvPercentileService {
         }
     }
 
-    private BigDecimal capture(String symbol, LocalDate observationDate) {
+    private BigDecimal capture(String symbol, LocalDate observationDate, String environment) {
         BigDecimal impliedVolatility = gateway.underlyingThirtyDayAtmIv(symbol);
         if (impliedVolatility == null || impliedVolatility.signum() <= 0
                 || impliedVolatility.compareTo(BigDecimal.valueOf(5)) > 0) {
             throw new TradierRequestException("Tradier returned an unusable 30-day ATM implied volatility.");
         }
-        historyMapper.saveSample(symbol, observationDate, impliedVolatility);
+        historyMapper.saveSample(symbol, observationDate, impliedVolatility, environment);
         return impliedVolatility;
     }
 
-    private List<BigDecimal> historicalSamples(String symbol, LocalDate today) {
+    private List<BigDecimal> historicalSamples(String symbol, LocalDate today, String environment) {
         return historyMapper.findHistoricalSamples(
-                symbol, today.minusWeeks(52), today, COMPARISON_OBSERVATIONS);
+                symbol, today.minusWeeks(52), today, COMPARISON_OBSERVATIONS, environment);
     }
 
     private BigDecimal percentileRank(BigDecimal currentIv, List<BigDecimal> historicalIvs) {

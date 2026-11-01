@@ -12,9 +12,11 @@ import java.util.Map;
 @RequestMapping("/api/trades/journal")
 public class TradingJournalController {
     private final JdbcTemplate jdbcTemplate;
+    private final TradierEnvironment environmentSource;
 
-    public TradingJournalController(JdbcTemplate jdbcTemplate) {
+    public TradingJournalController(JdbcTemplate jdbcTemplate, TradierEnvironment environmentSource) {
         this.jdbcTemplate = jdbcTemplate;
+        this.environmentSource = environmentSource;
     }
 
     @GetMapping
@@ -22,9 +24,11 @@ public class TradingJournalController {
         return jdbcTemplate.queryForList("""
                 SELECT tradierOrderId, legIndex, symbol, spreadType, orderStatus, side, optionType,
                        optionSymbol, CAST(expiration AS CHAR) AS expiration, strike, legQuantity,
-                       legAvgFillPrice, legExecQuantity, CAST(orderCreatedAt AS CHAR) AS orderCreatedAt
+                       legAvgFillPrice, legExecQuantity, CAST(orderCreatedAt AS CHAR) AS orderCreatedAt,
+                       environment
                 FROM tradingJournalLegDetails
+                WHERE environment = ?
                 ORDER BY orderCreatedAt DESC, tradierOrderId DESC, legIndex
-                """);
+                """, environmentSource.environment());
     }
 }

@@ -40,10 +40,12 @@ public interface TradeOrderMapper {
     int insertOrder(@Param("order") NewOrder order);
 
     @Insert("""
-            INSERT INTO tradeOrderEvents (ivTrackedSymbolsFk, tradeOrdersFk, orderEventTypesFk, previewId,
-                                          succeeded, endpoint, tradierOrderId, tradierPartnerId,
+            INSERT INTO tradeOrderEvents (ivTrackedSymbolsFk, tradeEnvironmentsFk, tradeOrdersFk, orderEventTypesFk,
+                                          previewId, succeeded, endpoint, tradierOrderId, tradierPartnerId,
                                           requestJson, responseJson)
-            VALUES (#{event.symbolPk}, #{event.orderPk},
+            VALUES (#{event.symbolPk},
+                    (SELECT pk FROM tradeEnvironments WHERE code = #{event.environment}),
+                    #{event.orderPk},
                     (SELECT pk FROM orderEventTypes WHERE code = #{event.eventType}),
                     #{event.previewId}, #{event.succeeded}, #{event.endpoint}, #{event.tradierOrderId},
                     #{event.tradierPartnerId}, #{event.requestJson}, #{event.responseJson})
@@ -92,10 +94,11 @@ public interface TradeOrderMapper {
             JOIN orderTypes ot ON ot.pk = o.orderTypesFk
             JOIN orderStatuses os ON os.pk = o.orderStatusesFk
             JOIN tradeEnvironments env ON env.pk = o.tradeEnvironmentsFk
-            WHERE s.symbol = #{symbol}
+            WHERE s.symbol = #{symbol} AND env.code = #{environment}
             ORDER BY o.submittedAt DESC, o.pk DESC
             """)
-    List<TradeOrderRecord> findOrdersBySymbol(@Param("symbol") String symbol);
+    List<TradeOrderRecord> findOrdersBySymbol(@Param("symbol") String symbol,
+                                              @Param("environment") String environment);
 
     @Select("""
             SELECT o.pk, s.symbol, o.tradierOrderId AS brokerOrderId, o.tradierPartnerId, env.code AS environment,
@@ -107,14 +110,18 @@ public interface TradeOrderMapper {
             JOIN orderTypes ot ON ot.pk = o.orderTypesFk
             JOIN orderStatuses os ON os.pk = o.orderStatusesFk
             JOIN tradeEnvironments env ON env.pk = o.tradeEnvironmentsFk
-            WHERE o.submittedAt >= #{from} AND o.submittedAt < #{toExclusive}
+            WHERE o.submittedAt >= #{from} AND o.submittedAt < #{toExclusive} AND env.code = #{environment}
             ORDER BY o.submittedAt DESC, o.pk DESC
             """)
     List<TradeOrderRecord> findOrdersBetween(@Param("from") LocalDateTime from,
-                                             @Param("toExclusive") LocalDateTime toExclusive);
+                                             @Param("toExclusive") LocalDateTime toExclusive,
+                                             @Param("environment") String environment);
 
     @Select("""
-            SELECT l.legIndex, ot.code AS optionType, l.expiration, l.strike, oa.code AS action, l.quantity
+            SELECT l.legIndex, ot.code AS optionType, l.expiration, l.strike,
+                   CASE oa.code WHEN 'BTO' THEN 'BUY_TO_OPEN' WHEN 'STO' THEN 'SELL_TO_OPEN'
+                                WHEN 'BTC' THEN 'BUY_TO_CLOSE' WHEN 'STC' THEN 'SELL_TO_CLOSE' END AS action,
+                   l.quantity
             FROM tradeOrderLegs l
             JOIN optionTypes ot ON ot.pk = l.optionTypesFk
             JOIN openingActions oa ON oa.pk = l.openingActionsFk
@@ -182,9 +189,10 @@ public interface TradeOrderMapper {
     int updateImportedOrder(@Param("orderPk") int orderPk, @Param("order") ImportedOrder order);
 
     @Insert("""
-            INSERT INTO tradeOrderEvents (ivTrackedSymbolsFk, tradeOrdersFk, orderEventTypesFk, succeeded,
-                                          endpoint, tradierOrderId, requestJson, responseJson, sentAt)
-            VALUES (#{event.symbolPk}, #{event.orderPk},
+            INSERT INTO tradeOrderEvents (ivTrackedSymbolsFk, tradeEnvironmentsFk, tradeOrdersFk, orderEventTypesFk,
+                                          succeeded, endpoint, tradierOrderId, requestJson, responseJson, sentAt)
+            VALUES (#{event.symbolPk}, (SELECT tradeEnvironmentsFk FROM tradeOrders WHERE pk = #{event.orderPk}),
+                    #{event.orderPk},
                     (SELECT pk FROM orderEventTypes WHERE code = #{event.eventType}),
                     #{event.succeeded}, #{event.endpoint}, #{event.tradierOrderId},
                     #{event.requestJson}, #{event.responseJson}, #{event.sentAt})
@@ -223,6 +231,7 @@ public interface TradeOrderMapper {
 
     class NewEvent {
         public int symbolPk;
+        public String environment;
         public Integer orderPk;
         public String previewId;
         public String eventType;

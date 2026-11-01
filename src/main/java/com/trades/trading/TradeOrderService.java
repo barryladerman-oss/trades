@@ -15,10 +15,13 @@ import java.util.Map;
 public class TradeOrderService {
     private final TradeOrderMapper mapper;
     private final ObjectMapper objectMapper;
+    private final TradierEnvironment environmentSource;
 
-    public TradeOrderService(TradeOrderMapper mapper, ObjectMapper objectMapper) {
+    public TradeOrderService(TradeOrderMapper mapper, ObjectMapper objectMapper,
+                             TradierEnvironment environmentSource) {
         this.mapper = mapper;
         this.objectMapper = objectMapper;
+        this.environmentSource = environmentSource;
     }
 
     @Transactional
@@ -37,18 +40,19 @@ public class TradeOrderService {
         int index = 0;
         for (OptionLeg leg : trade.legs()) {
             mapper.insertLeg(order.pk, index++, leg.optionType().name(), leg.expiration(), leg.strike(),
-                    leg.action().name(), leg.quantity());
+                    leg.action().code(), leg.quantity());
         }
         return order.pk;
     }
 
-    public void recordEvent(String symbol, Integer orderPk, String previewId, String eventType,
+    public void recordEvent(String symbol, String environment, Integer orderPk, String previewId, String eventType,
                             boolean succeeded, String endpoint, Map<String, List<String>> request,
                             JsonNode response, String errorMessage) {
         String normalized = symbol.toUpperCase(Locale.ROOT);
         mapper.trackSymbol(normalized);
         TradeOrderMapper.NewEvent event = new TradeOrderMapper.NewEvent();
         event.symbolPk = mapper.findSymbolPk(normalized);
+        event.environment = environment;
         event.orderPk = orderPk;
         event.previewId = previewId;
         event.eventType = eventType;
@@ -72,14 +76,15 @@ public class TradeOrderService {
     }
 
     public List<TradeOrderRecord> forSymbol(String symbol) {
-        return withDetails(mapper.findOrdersBySymbol(symbol.toUpperCase(Locale.ROOT)));
+        return withDetails(mapper.findOrdersBySymbol(symbol.toUpperCase(Locale.ROOT), environmentSource.environment()));
     }
 
     public List<TradeOrderRecord> between(java.time.LocalDate from, java.time.LocalDate to) {
         if (from.isAfter(to)) {
             throw new IllegalArgumentException("The start date must not be after the end date.");
         }
-        return withDetails(mapper.findOrdersBetween(from.atStartOfDay(), to.plusDays(1).atStartOfDay()));
+        return withDetails(mapper.findOrdersBetween(from.atStartOfDay(), to.plusDays(1).atStartOfDay(),
+                environmentSource.environment()));
     }
 
     private List<TradeOrderRecord> withDetails(List<TradeOrderRecord> found) {
