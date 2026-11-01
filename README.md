@@ -59,6 +59,11 @@ creates its tables from `schema.sql`. This local XAMPP setup uses MariaDB, which
 is MySQL-protocol compatible. A blank-password root account is for local
 development only and should not be exposed to a network.
 
+On Windows, MariaDB lowercases table names by default. To keep the camelCase
+names from `schema.sql`, add `lower_case_table_names=2` under `[mysqld]` in
+`my.ini` before first creating the database. MariaDB still stores view files
+in lowercase on Windows, so views may be listed in lowercase.
+
 ## Enter and submit a paper trade
 
 The form and REST API support single-leg, vertical, iron condor, butterfly,

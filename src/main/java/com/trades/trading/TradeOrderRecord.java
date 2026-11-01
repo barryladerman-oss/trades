@@ -9,7 +9,7 @@ public record TradeOrderRecord(
         int pk,
         String symbol,
         String brokerOrderId,
-        String tradierPartnerId,
+        String partner,
         String environment,
         SpreadType spreadType,
         OrderType orderType,

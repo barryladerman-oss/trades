@@ -50,7 +50,7 @@ class TradesApplicationTests {
                 new com.fasterxml.jackson.databind.ObjectMapper()
                         .readTree("{\"order\":{\"id\":12345,\"partner_id\":\"abc\",\"status\":\"ok\"}}"));
         int orderPk = orderService.forSymbol("ORDTST").get(0).pk();
-        orderService.recordEvent("ordtst", orderPk, "prev-1", "SUBMIT", true, "POST /v1/accounts/{accountId}/orders",
+        orderService.recordEvent("ordtst", "SANDBOX", orderPk, "prev-1", "SUBMIT", true, "POST /v1/accounts/{accountId}/orders",
                 java.util.Map.of("preview", java.util.List.of("false")),
                 new com.fasterxml.jackson.databind.ObjectMapper()
                         .readTree("{\"order\":{\"id\":12345,\"partner_id\":\"abc\",\"status\":\"ok\"}}"), null);
@@ -85,6 +85,40 @@ class TradesApplicationTests {
     }
 
     @Test
+    void showsPartnerNamesForKnownTradierPartnerIds() throws Exception {
+        TradeRequest trade = new TradeRequest("prtnrt", SpreadType.SINGLE_LEG,
+                java.util.List.of(new OptionLeg(com.trades.trading.OptionType.CALL, LocalDate.of(2026, 12, 18),
+                        new BigDecimal("305"), com.trades.trading.OpeningAction.BUY_TO_OPEN, 1)),
+                OrderType.DEBIT, new BigDecimal("1.00"));
+        orderService.record(trade, "SANDBOX", new com.fasterxml.jackson.databind.ObjectMapper().readTree(
+                "{\"order\":{\"id\":999,\"partner_id\":\"3a8bbee1-5184-4ffe-8a0c-294fbad1aee9\"}}"));
+
+        assertThat(orderService.forSymbol("PRTNRT").get(0).partner()).isEqualTo("Option Alpha");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT tradierPartner FROM tradeOrderSummary WHERE tradierOrderId = '999'", String.class))
+                .isEqualTo("Option Alpha");
+    }
+
+    @Test
+    void cancelRecordsCancelEventAndStatus() throws Exception {
+        TradeRequest trade = new TradeRequest("cncltst", SpreadType.SINGLE_LEG,
+                java.util.List.of(new OptionLeg(com.trades.trading.OptionType.CALL, LocalDate.of(2026, 12, 18),
+                        new BigDecimal("305"), com.trades.trading.OpeningAction.BUY_TO_OPEN, 1)),
+                OrderType.DEBIT, new BigDecimal("1.00"));
+        orderService.record(trade, "SANDBOX", new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree("{\"order\":{\"id\":888,\"partner_id\":\"p\"}}"));
+        var gateway = org.mockito.Mockito.mock(com.trades.trading.TradierGateway.class);
+        var poller = new com.trades.trading.OrderStatusPoller(orderMapper, orderService, gateway,
+                new com.trades.trading.TradierEnvironment(new com.trades.trading.TradierProperties(null, null)));
+
+        poller.cancel("888");
+
+        var order = orderService.forSymbol("CNCLTST").get(0);
+        assertThat(order.status()).isEqualTo(com.trades.trading.OrderStatus.CANCELLED);
+        assertThat(order.events()).extracting("eventType").containsExactly("CANCEL");
+    }
+
+    @Test
     void pollUpdatesOrderStatusAndRecordsChangeOnce() throws Exception {
         TradeRequest trade = new TradeRequest("polltst", SpreadType.SINGLE_LEG,
                 java.util.List.of(new OptionLeg(com.trades.trading.OptionType.CALL, LocalDate.of(2026, 12, 18),
@@ -112,9 +146,9 @@ class TradesApplicationTests {
         String symbol = "TST";
         LocalDate observationDate = LocalDate.of(2026, 10, 22);
         historyMapper.trackSymbol(symbol);
-        historyMapper.saveSample(symbol, observationDate, new BigDecimal("0.250000"));
+        historyMapper.saveSample(symbol, observationDate, new BigDecimal("0.250000"), "SANDBOX");
 
-        assertThat(historyMapper.findSample(symbol, observationDate))
+        assertThat(historyMapper.findSample(symbol, observationDate, "SANDBOX"))
                 .isEqualByComparingTo("0.250000");
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM ivDailySamples sample "

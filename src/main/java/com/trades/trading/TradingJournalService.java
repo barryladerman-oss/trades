@@ -99,7 +99,8 @@ public class TradingJournalService {
                     text(order, "class"), text(order, "type"), text(order, "status"), text(order, "duration"),
                     decimal(order, "quantity"), decimal(order, "price"), decimal(order, "avg_fill_price"),
                     decimal(order, "exec_quantity"), timestamp(order, "create_date"),
-                    timestamp(order, "transaction_date"), side, text(leg, "option_symbol"),
+                    timestamp(order, "transaction_date"), action(side) == null ? side : action(side),
+                    text(leg, "option_symbol"),
                     option == null ? null : option.expiration(), option == null ? null : option.strike(),
                     text(leg, "status"), decimal(leg, "quantity"), decimal(leg, "avg_fill_price"),
                     decimal(leg, "exec_quantity"), decimal(leg, "remaining_quantity"), leg.toString()));
@@ -199,14 +200,7 @@ public class TradingJournalService {
     }
 
     private static String action(String side) {
-        if (side == null) {
-            return null;
-        }
-        String upper = side.toUpperCase(Locale.ROOT);
-        return switch (upper) {
-            case "BUY_TO_OPEN", "SELL_TO_OPEN", "BUY_TO_CLOSE", "SELL_TO_CLOSE" -> upper;
-            default -> null;
-        };
+        return OpeningAction.codeForTradierValue(side);
     }
 
     private static List<JsonNode> asList(JsonNode node) {
