@@ -45,6 +45,10 @@ public interface TradierGateway {
         throw new UnsupportedOperationException("Account positions are not supported.");
     }
 
+    default JsonNode accountPositions(String environment) {
+        return accountPositions();
+    }
+
     default JsonNode cancelOrder(String orderId) {
         throw new UnsupportedOperationException("Order cancellation is not supported.");
     }

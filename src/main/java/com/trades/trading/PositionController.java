@@ -15,10 +15,13 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/trades")
 public class PositionController {
+    private static final Pattern EQUITY_SYMBOL = Pattern.compile("[A-Za-z][A-Za-z0-9.-]{0,9}");
+
     private final TradierGateway gateway;
     private final OrderStatusPoller poller;
     private final TradeOrderService orders;
@@ -55,7 +58,9 @@ public class PositionController {
     public List<PositionGroup> positions() {
         Map<String, BigDecimal> remaining = new LinkedHashMap<>();
         Map<String, BigDecimal> costBasis = new LinkedHashMap<>();
-        JsonNode node = gateway.accountPositions().path("positions").path("position");
+        List<PositionGroup> equityGroups = new ArrayList<>();
+        JsonNode node = gateway.accountPositions(environmentSource.environment())
+                .path("positions").path("position");
         List<JsonNode> items = new ArrayList<>();
         if (node.isArray()) {
             node.forEach(items::add);
@@ -65,13 +70,21 @@ public class PositionController {
         for (JsonNode item : items) {
             String symbol = item.path("symbol").asText();
             BigDecimal quantity = item.path("quantity").decimalValue();
-            if (SpreadClassifier.Leg.parse(symbol, quantity) != null && quantity.signum() != 0) {
+            if (quantity.signum() == 0) {
+                continue;
+            }
+            SpreadClassifier.Leg parsed = SpreadClassifier.Leg.parse(symbol, quantity);
+            if (parsed != null) {
                 remaining.put(symbol, quantity);
                 costBasis.put(symbol, item.path("cost_basis").decimalValue());
+            } else if (EQUITY_SYMBOL.matcher(symbol).matches()) {
+                PositionLeg leg = new PositionLeg(symbol, "EQUITY", null, null, quantity,
+                        item.path("cost_basis").decimalValue());
+                equityGroups.add(new PositionGroup(null, null, symbol, "EQUITY", null, List.of(leg)));
             }
         }
 
-        List<PositionGroup> groups = new ArrayList<>();
+        List<PositionGroup> groups = new ArrayList<>(equityGroups);
         Map<String, List<Map<String, Object>>> byOrder = new LinkedHashMap<>();
         jdbcTemplate.queryForList("""
                 SELECT tradierOrderId, legIndex, symbol, spreadType, side, optionSymbol, legQuantity,

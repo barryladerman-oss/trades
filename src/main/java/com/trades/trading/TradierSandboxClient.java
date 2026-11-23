@@ -414,15 +414,25 @@ public class TradierSandboxClient implements TradierGateway {
 
     @Override
     public JsonNode accountPositions() {
-        requireOrderCredentials();
-        JsonNode response = restClient.get()
-                .uri("/accounts/{accountId}/positions", properties.accountId())
-                .headers(headers -> headers.setBearerAuth(Objects.requireNonNull(properties.token())))
+        return accountPositions(properties.environment());
+    }
+
+    @Override
+    public JsonNode accountPositions(String environment) {
+        String accountId = properties.accountIdFor(environment);
+        String token = properties.tokenFor(environment);
+        if (!properties.available(environment) || !accountId.matches("[A-Za-z0-9-]+")) {
+            throw new IllegalStateException("Tradier " + environment + " credentials are not configured.");
+        }
+        RestClient client = TradierProperties.LIVE.equals(environment) ? liveClient : sandboxClient;
+        JsonNode response = client.get()
+                .uri("/accounts/{accountId}/positions", accountId)
+                .headers(headers -> headers.setBearerAuth(token))
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .body(JsonNode.class);
         if (response == null || response.has("errors")) {
-            throw new TradierRequestException("Tradier did not return the account positions.");
+            throw new TradierRequestException("Tradier did not return the " + environment + " account positions.");
         }
         return response;
     }

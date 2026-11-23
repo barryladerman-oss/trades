@@ -21,11 +21,16 @@
     #orders-table th[aria-sort="ascending"] button::after, #journal-table th[aria-sort="ascending"] button::after { content: " ?"; }
     #orders-table th[aria-sort="descending"] button::after, #journal-table th[aria-sort="descending"] button::after { content: " ?"; }
     #orders-panel .actions label { display: inline-flex; align-items: center; gap: .3rem; margin-right: .6rem; }
+    .trade-filters { display: flex; flex-wrap: wrap; align-items: end; gap: .6rem; margin: .5rem 0; }
+    .trade-filters label { min-width: 8rem; }
+    .trade-filters input, .trade-filters select { min-width: 0; }
+    .trade-filters #orders-symbol-filter, .trade-filters #journal-symbol-filter { width: 10rem; }
+    .trade-filters button { min-height: 2.15rem; }
     .main-tabs { display: flex; gap: .3rem; margin: .5rem 0; border-bottom: 2px solid var(--blue-border); }
     .main-tabs button { padding: .45rem 1rem; border: 1px solid var(--blue-border); border-bottom: 0; border-radius: 6px 6px 0 0; background: #fff; cursor: pointer; }
     .main-tabs button.active { background: var(--blue-accent); color: #fff; font-weight: 700; }
     .tab-panel[hidden] { display: none; }
-    #positions-table tr.position-group { cursor: pointer; }
+    #positions-table tr.position-group:not(.equity-position) { cursor: pointer; }
     #positions-table tr.position-group.selected td { background: #cfe5f7; box-shadow: inset 0 0 0 1px var(--blue-accent); }
     .tab-panel > h2 { font-size: 1.1rem; margin: .4rem 0; }
     #positions-table tr.position-group td { font-weight: 700; border-top: 2px solid #888; background: rgba(128, 128, 128, .12); }
@@ -190,6 +195,21 @@
 
   <section class="tab-panel" id="tab-journal" role="tabpanel" hidden>
     <h2>Trading Journal</h2>
+    <div class="trade-filters" id="journal-filters" role="search" aria-label="Filter past trades">
+      <label for="journal-symbol-filter">Symbol
+        <input id="journal-symbol-filter" type="search" placeholder="e.g. SPY" autocomplete="off">
+      </label>
+      <label for="journal-spread-filter">Spread type
+        <select id="journal-spread-filter"><option value="">All spread types</option></select>
+      </label>
+      <label for="journal-date-from">From
+        <input id="journal-date-from" type="date">
+      </label>
+      <label for="journal-date-to">To
+        <input id="journal-date-to" type="date">
+      </label>
+      <button type="button" id="journal-filter-clear">Clear filters</button>
+    </div>
     <div class="actions">
       <button type="button" id="journal-refresh">Sync from Tradier</button>
     </div>
@@ -259,6 +279,21 @@
 
   <section class="tab-panel" id="tab-orders" role="tabpanel" hidden>
     <h2>Open Orders</h2>
+    <div class="trade-filters" id="orders-filters" role="search" aria-label="Filter open trades">
+      <label for="orders-symbol-filter">Symbol
+        <input id="orders-symbol-filter" type="search" placeholder="e.g. SPY" autocomplete="off">
+      </label>
+      <label for="orders-spread-filter">Spread type
+        <select id="orders-spread-filter"><option value="">All spread types</option></select>
+      </label>
+      <label for="orders-date-from">From
+        <input id="orders-date-from" type="date">
+      </label>
+      <label for="orders-date-to">To
+        <input id="orders-date-to" type="date">
+      </label>
+      <button type="button" id="orders-filter-clear">Clear filters</button>
+    </div>
     <div class="actions">
       <button type="button" id="orders-refresh">Refresh</button>
     </div>
@@ -283,6 +318,21 @@
 
   <section class="tab-panel" id="tab-positions" role="tabpanel" hidden>
     <h2>Positions</h2>
+    <div class="trade-filters" id="positions-filters" role="search" aria-label="Filter open trades">
+      <label for="positions-symbol-filter">Symbol
+        <input id="positions-symbol-filter" type="search" placeholder="e.g. SPY" autocomplete="off">
+      </label>
+      <label for="positions-spread-filter">Spread type
+        <select id="positions-spread-filter"><option value="">All spread types</option></select>
+      </label>
+      <label for="positions-date-from">From
+        <input id="positions-date-from" type="date">
+      </label>
+      <label for="positions-date-to">To
+        <input id="positions-date-to" type="date">
+      </label>
+      <button type="button" id="positions-filter-clear">Clear filters</button>
+    </div>
     <div class="actions">
       <button type="button" id="positions-refresh">Refresh</button>
     </div>
@@ -494,9 +544,41 @@
       return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
     }
 
+    function populateSpreadFilter(selectId, rows, getSpread) {
+      const select = document.querySelector(selectId);
+      const selected = select.value;
+      const spreads = [...new Set(rows.map(getSpread).filter(Boolean))]
+        .sort((left, right) => left.localeCompare(right));
+      select.replaceChildren(new Option("All spread types", ""));
+      spreads.forEach(spread => select.add(new Option(spread.replaceAll("_", " "), spread)));
+      if (spreads.includes(selected)) select.value = selected;
+      else select.value = "";
+    }
+
+    function matchesTradeFilters(row, prefix, dateField) {
+      const symbol = document.querySelector(`#${prefix}-symbol-filter`).value.trim().toUpperCase();
+      const spread = document.querySelector(`#${prefix}-spread-filter`).value;
+      const from = document.querySelector(`#${prefix}-date-from`).value;
+      const to = document.querySelector(`#${prefix}-date-to`).value;
+      const dateValue = String(row[dateField] ?? "").slice(0, 10);
+      return (!symbol || String(row.symbol ?? "").toUpperCase().includes(symbol))
+        && (!spread || row.spreadType === spread)
+        && (!from || dateValue >= from)
+        && (!to || dateValue <= to);
+    }
+
+    function resetTradeFilters(prefix) {
+      document.querySelector(`#${prefix}-symbol-filter`).value = "";
+      document.querySelector(`#${prefix}-spread-filter`).value = "";
+      document.querySelector(`#${prefix}-date-from`).value = "";
+      document.querySelector(`#${prefix}-date-to`).value = "";
+    }
+
     function renderOrders() {
       const { key, direction } = ordersSort;
-      const sorted = [...loadedOrders].sort((left, right) => {
+      populateSpreadFilter("#orders-spread-filter", loadedOrders, order => order.spreadType);
+      const filtered = loadedOrders.filter(order => matchesTradeFilters(order, "orders", "submittedAt"));
+      const sorted = [...filtered].sort((left, right) => {
         const a = left[key] ?? "";
         const b = right[key] ?? "";
         const result = typeof a === "number" && typeof b === "number"
@@ -564,7 +646,9 @@
         });
         return [tr, detail];
       }).flat());
-      ordersStatus.textContent = `${sorted.length} open order${sorted.length === 1 ? "" : "s"}.`;
+      ordersStatus.textContent = filtered.length === loadedOrders.length
+        ? `${sorted.length} open order${sorted.length === 1 ? "" : "s"}.`
+        : `${sorted.length} of ${loadedOrders.length} open orders match filters.`;
     }
 
     async function loadOrders() {
@@ -584,6 +668,7 @@
     const positionPlPanel = document.querySelector("#position-pl-panel");
     const positionPlChart = document.querySelector("#position-pl-chart");
     const positionPlStatus = document.querySelector("#position-pl-status");
+    let loadedPositions = [];
     let selectedPositionKey = null;
     let positionPlRequest = 0;
 
@@ -641,7 +726,9 @@
       }
       positionPlStatus.textContent = "";
       drawProfitLoss({
-        legs, premium: -cost, symbol: group.symbol, statusText: () => ""
+        legs, premium: -cost, symbol: group.symbol,
+        statusText: (_hasTheoreticalInputs, _timeSpread, currency, expectedMove) =>
+          expectedMoveDescription(expectedMove, currency)
       }, spot, positionPlChart, positionPlStatus);
     }
 
@@ -651,29 +738,45 @@
         const response = await fetch("api/trades/positions");
         const groups = await response.json();
         if (!response.ok) throw new Error(groups.detail || `Request failed (${response.status}).`);
+        loadedPositions = groups;
+        renderPositions();
+      } catch (error) {
+        positionsStatus.textContent = error.message;
+      }
+    }
+
+    function renderPositions() {
+      const groups = [...loadedPositions];
+      populateSpreadFilter("#positions-spread-filter", groups, group => group.spreadType);
+      const filtered = groups.filter(group => matchesTradeFilters(group, "positions", "createdAt"));
         const today = localDateString(new Date());
         const cell = (tr, value) => tr.append(Object.assign(document.createElement("td"), { textContent: value }));
         const rows = [];
-        groups.forEach(group => {
+        filtered.forEach(group => {
           const header = document.createElement("tr");
-          header.className = "position-group";
+          const isEquity = group.spreadType === "EQUITY";
+          header.className = isEquity ? "position-group equity-position" : "position-group";
           header.classList.toggle("selected", positionKey(group) === selectedPositionKey);
-          header.addEventListener("click", event => {
-            if (event.target.closest("button")) return;
-            selectedPositionKey = positionKey(group);
-            document.querySelectorAll("#positions-table tr.position-group").forEach(row =>
-              row.classList.toggle("selected", row === header));
-            showPositionPl(group);
-          });
+          if (!isEquity) {
+            header.addEventListener("click", event => {
+              if (event.target.closest("button")) return;
+              selectedPositionKey = positionKey(group);
+              document.querySelectorAll("#positions-table tr.position-group").forEach(row =>
+                row.classList.toggle("selected", row === header));
+              showPositionPl(group);
+            });
+          }
+          const expirations = group.legs.map(leg => leg.expiration).filter(Boolean);
           const dayNumber = text => Math.floor(Date.UTC(...text.slice(0, 10).split("-").map(
             (part, index) => index === 1 ? Number(part) - 1 : Number(part))) / 86400000);
           const todayNumber = dayNumber(today);
-          const dte = dayNumber(group.legs.map(leg => leg.expiration).sort()[0]) - todayNumber;
+          const dte = expirations.length
+            ? dayNumber(expirations.sort()[0]) - todayNumber : "";
           const dit = group.createdAt ? Math.max(0, todayNumber - dayNumber(group.createdAt)) : "";
           [group.orderId ?? "Unmatched", group.createdAt ?? "", group.symbol,
             group.spreadType.replaceAll("_", " "), group.tradierPartner ?? "", dte, dit,
             "", "", "", "", ""].forEach(value => cell(header, value));
-          const closable = group.legs.length <= 4 && group.legs.every(leg => leg.expiration >= today
+          const closable = !isEquity && group.legs.length <= 4 && group.legs.every(leg => leg.expiration >= today
             && Number.isInteger(Number(leg.quantity)));
           const actions = document.createElement("td");
           if (closable) {
@@ -698,20 +801,34 @@
           rows.push(header);
           group.legs.forEach((leg, index) => {
             const tr = document.createElement("tr");
-            ["", "", "", "", "", "", "", leg.optionType, leg.expiration, Number(leg.strike).toFixed(2), leg.quantity,
+            ["", "", "", "", "", "", "", leg.optionType, leg.expiration ?? "",
+              leg.strike == null ? "" : Number(leg.strike).toFixed(2), leg.quantity,
               Number(leg.costBasis).toFixed(2), ""].forEach(value => cell(tr, value));
             rows.push(tr);
           });
         });
         document.querySelector("#positions-table tbody").replaceChildren(...rows);
-        positionsStatus.textContent = `${groups.length} position group${groups.length === 1 ? "" : "s"}.`;
-      } catch (error) {
-        positionsStatus.textContent = error.message;
-      }
+        positionsStatus.textContent = filtered.length === groups.length
+          ? `${groups.length} position group${groups.length === 1 ? "" : "s"}.`
+          : `${filtered.length} of ${groups.length} position groups match filters.`;
     }
 
     document.querySelector("#orders-refresh").addEventListener("click", loadOrders);
     document.querySelector("#positions-refresh").addEventListener("click", loadPositions);
+    ["orders-symbol-filter", "orders-date-from", "orders-date-to"].forEach(id =>
+      document.querySelector(`#${id}`).addEventListener("input", renderOrders));
+    document.querySelector("#orders-spread-filter").addEventListener("change", renderOrders);
+    document.querySelector("#orders-filter-clear").addEventListener("click", () => {
+      resetTradeFilters("orders");
+      renderOrders();
+    });
+    ["positions-symbol-filter", "positions-date-from", "positions-date-to"].forEach(id =>
+      document.querySelector(`#${id}`).addEventListener("input", renderPositions));
+    document.querySelector("#positions-spread-filter").addEventListener("change", renderPositions);
+    document.querySelector("#positions-filter-clear").addEventListener("click", () => {
+      resetTradeFilters("positions");
+      renderPositions();
+    });
 
     const tabLoaders = { orders: loadOrders, positions: loadPositions, journal: () => loadJournal(false) };
     function showTab(name) {
@@ -741,7 +858,10 @@
     function renderJournal() {
       const { key, direction } = journalSort;
       const orders = new Map();
-      journalRows.forEach(row => {
+      populateSpreadFilter("#journal-spread-filter", journalRows, row => row.spreadType);
+      const filteredRows = journalRows.filter(row =>
+        matchesTradeFilters(row, "journal", "orderCreatedAt"));
+      filteredRows.forEach(row => {
         if (!orders.has(row.tradierOrderId)) orders.set(row.tradierOrderId, { ...row, legs: [] });
         orders.get(row.tradierOrderId).legs.push(row);
       });
@@ -778,7 +898,11 @@
         });
       });
       document.querySelector("#journal-table tbody").replaceChildren(...rows);
-      journalStatus.textContent = `${sorted.length} order${sorted.length === 1 ? "" : "s"}, ${journalRows.length} leg${journalRows.length === 1 ? "" : "s"}.`;
+      const legCount = filteredRows.length;
+      const countText = filteredRows.length === journalRows.length
+        ? `${journalRows.length} leg${journalRows.length === 1 ? "" : "s"}`
+        : `${legCount} of ${journalRows.length} legs match filters`;
+      journalStatus.textContent = `${sorted.length} order${sorted.length === 1 ? "" : "s"}, ${countText}.`;
     }
 
     async function loadJournal(sync) {
@@ -985,6 +1109,13 @@
     document.querySelectorAll("dialog .dialog-close").forEach(button =>
       button.addEventListener("click", () => button.closest("dialog").close()));
     document.querySelector("#journal-refresh").addEventListener("click", () => loadJournal(true));
+    ["journal-symbol-filter", "journal-date-from", "journal-date-to"].forEach(id =>
+      document.querySelector(`#${id}`).addEventListener("input", renderJournal));
+    document.querySelector("#journal-spread-filter").addEventListener("change", renderJournal);
+    document.querySelector("#journal-filter-clear").addEventListener("click", () => {
+      resetTradeFilters("journal");
+      renderJournal();
+    });
     document.querySelectorAll("#journal-table button.sort").forEach(button =>
       button.addEventListener("click", () => {
         const key = button.dataset.sort;
@@ -2337,6 +2468,16 @@
         : strike * normalCumulativeProbability(-d2) - underlying * normalCumulativeProbability(-d1);
     }
 
+    function expectedMoveDescription(expectedMove, currency) {
+      if (expectedMove.volatility == null) {
+        return `Expected move is unavailable for ${expectedMove.expiration} because valid implied volatility is unavailable for its options.`;
+      }
+      const volatility = new Intl.NumberFormat(undefined, {
+        style: "percent", maximumFractionDigits: 1
+      }).format(expectedMove.volatility);
+      return `One-standard-deviation expected move through ${expectedMove.expiration}: ${currency.format(expectedMove.lower)} to ${currency.format(expectedMove.upper)} using ${volatility} implied volatility.`;
+    }
+
     function renderProfitLoss(rows, spot, key, marketQuote) {
       const order = orderType.value;
       const limitPrice = Number(document.querySelector("#limit-price").value);
@@ -2358,12 +2499,12 @@
         legs,
         premium,
         symbol: symbolInput.value.trim().toUpperCase(),
-        statusText: (hasTheoreticalInputs, timeSpread, currency) => {
+        statusText: (hasTheoreticalInputs, timeSpread, currency, expectedMove) => {
           const premiumLabel = order === "EVEN" ? "even order" : `${order.toLowerCase()} ${currency.format(limitPrice)}/unit`;
           const theoreticalNote = hasTheoreticalInputs
             ? " Theoretical P/L is today's Black-Scholes value of the position (per-leg IV and time remaining, zero interest/dividend rates) against the entered net limit price."
             : " Theoretical P/L is unavailable until current leg quotes include implied volatility.";
-          return `${timeSpread ? "P/L at short-leg expiration" : "Expiration P/L"} uses ${premiumLabel} across ${contracts} position unit${contracts === 1 ? "" : "s"}; the option multiplier is 100.${theoreticalNote}`;
+          return `${timeSpread ? "P/L at short-leg expiration" : "Expiration P/L"} uses ${premiumLabel} across ${contracts} position unit${contracts === 1 ? "" : "s"}; the option multiplier is 100.${theoreticalNote} ${expectedMoveDescription(expectedMove, currency)}`;
         }
       }, spot, profitLossChart, profitLossStatus);
       renderedProfitLossKey = key;
@@ -2382,6 +2523,31 @@
           `${leg.expiration}T23:59:59Z`
         ).getTime() - valuationTime) / (365 * 24 * 60 * 60 * 1000))
       }));
+      const nearestExpirationLegs = legs.filter(leg => leg.expiration === shortExpiration);
+      const nearestExpirationQuantity = nearestExpirationLegs.reduce(
+        (total, leg) => total + Math.abs(Number(leg.quantity)), 0);
+      const nearestExpirationQuotesValid = nearestExpirationLegs.length > 0
+        && nearestExpirationLegs.every(leg =>
+          Number.isFinite(Number(leg.quote?.impliedVolatility))
+          && Number(leg.quote.impliedVolatility) > 0
+          && Number(leg.quantity) > 0);
+      const expectedMove = {
+        expiration: shortExpiration,
+        volatility: nearestExpirationQuotesValid && nearestExpirationQuantity > 0
+          ? nearestExpirationLegs.reduce((total, leg) =>
+            total + Number(leg.quote.impliedVolatility) * Math.abs(Number(leg.quantity)), 0)
+            / nearestExpirationQuantity
+          : null
+      };
+      if (expectedMove.volatility != null && Number.isFinite(spot) && spot > 0) {
+        const timeToExpiration = Math.max(0,
+          (shortExpirationTime - valuationTime) / (365 * 24 * 60 * 60 * 1000));
+        const move = spot * expectedMove.volatility * Math.sqrt(timeToExpiration);
+        expectedMove.lower = Math.max(0, spot - move);
+        expectedMove.upper = spot + move;
+      } else {
+        expectedMove.volatility = null;
+      }
       const payoff = underlying => premium + legs.reduce((total, leg) => {
         const intrinsic = leg.type === "CALL"
           ? Math.max(underlying - leg.strike, 0)
@@ -2422,8 +2588,8 @@
         : null;
 
       const strikes = legs.map(leg => leg.strike);
-      const minStrike = Math.min(...strikes, spot);
-      const maxStrike = Math.max(...strikes, spot);
+      const minStrike = Math.min(...strikes, spot, expectedMove.lower ?? spot);
+      const maxStrike = Math.max(...strikes, spot, expectedMove.upper ?? spot);
       const padding = Math.max((maxStrike - minStrike) * 0.15, spot * 0.05, 1);
       const minUnderlying = Math.max(0, minStrike - padding);
       const maxUnderlying = maxStrike + padding;
@@ -2529,8 +2695,15 @@
       profitLossChart.setAttribute("aria-label",
         `Position ${timeSpread ? "short-expiration" : "expiration"} and theoretical Black-Scholes profit or loss for ${model.symbol}.`);
       profitLossChart.append(
-        svgNode("desc", {}, `${timeSpread ? "Short-expiration" : "Expiration"} profit or loss uses the entered net limit price${timeSpread ? " and Black-Scholes value for farther-dated legs at the short expiration" : ""}. The theoretical line uses Black-Scholes, each leg's implied volatility and remaining time, zero interest and dividend rates, and current leg midpoint marks.`)
+        svgNode("desc", {}, `${timeSpread ? "Short-expiration" : "Expiration"} profit or loss uses the entered net limit price${timeSpread ? " and Black-Scholes value for farther-dated legs at the short expiration" : ""}. The shaded expected-move range is a one-standard-deviation estimate through ${shortExpiration}, based on the quantity-weighted implied volatility of options expiring on that date. The theoretical line uses Black-Scholes, each leg's implied volatility and remaining time, zero interest and dividend rates, and current leg midpoint marks.`)
       );
+      if (expectedMove.volatility != null) {
+        profitLossChart.append(svgNode("rect", {
+          x: x(expectedMove.lower), y: margin.top,
+          width: x(expectedMove.upper) - x(expectedMove.lower), height: plotHeight,
+          fill: "#72b7d8", "fill-opacity": 0.16, stroke: "none"
+        }));
+      }
       for (let index = 0; index <= 4; index++) {
         const profit = yMin + (yMax - yMin) * index / 4;
         profitLossChart.append(
@@ -2573,6 +2746,18 @@
           svgNode("path", {
             d: theoreticalLossArea,
             fill: "#d45e5e", "fill-opacity": 0.07, stroke: "none"
+          })
+        ] : []),
+        ...(expectedMove.volatility != null ? [
+          svgNode("line", {
+            x1: x(expectedMove.lower), x2: x(expectedMove.lower),
+            y1: margin.top, y2: height - margin.bottom,
+            stroke: "#397d9e", "stroke-width": 1, "stroke-dasharray": "4 4"
+          }),
+          svgNode("line", {
+            x1: x(expectedMove.upper), x2: x(expectedMove.upper),
+            y1: margin.top, y2: height - margin.bottom,
+            stroke: "#397d9e", "stroke-width": 1, "stroke-dasharray": "4 4"
           })
         ] : []),
         svgNode("line", {
@@ -2659,6 +2844,18 @@
           }, "Theoretical")
         );
       }
+      if (expectedMove.volatility != null) {
+        legend.append(
+          svgNode("rect", {
+            x: margin.left + 6, y: margin.top + 4, width: 12, height: 8,
+            fill: "#72b7d8", "fill-opacity": 0.45
+          }),
+          svgNode("text", {
+            x: margin.left + 23, y: margin.top + 12,
+            fill: "#20364a", "font-size": 11
+          }, "Expected move")
+        );
+      }
       profitLossChart.append(legend, hoverLine, hoverMarker, theoreticalHoverMarker, hoverLabel, hoverTooltip);
       profitLossChart.onpointermove = event => {
         const bounds = profitLossChart.getBoundingClientRect();
@@ -2707,7 +2904,8 @@
         hoverLabel.setAttribute("visibility", "hidden");
         hoverTooltip.setAttribute("visibility", "hidden");
       };
-      profitLossStatus.textContent = model.statusText(hasTheoreticalInputs, timeSpread, currency);
+      profitLossStatus.textContent =
+        model.statusText(hasTheoreticalInputs, timeSpread, currency, expectedMove);
     }
 
     function normalCumulativeProbability(value) {
