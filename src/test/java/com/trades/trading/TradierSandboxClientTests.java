@@ -73,6 +73,23 @@ class TradierSandboxClientTests {
     }
 
     @Test
+    void fetchesAccountPositionsFromSelectedEnvironmentAndAccount() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        TradierEnvironment environment = new TradierEnvironment(
+                new TradierProperties("SANDBOX-ACCT", "sandbox-token", "SANDBOX", "LIVE-ACCT", "live-token"));
+        TradierSandboxClient client = new TradierSandboxClient(builder, environment, Clock.systemUTC());
+        server.expect(requestTo("https://api.tradier.com/v1/accounts/LIVE-ACCT/positions"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("Authorization", "Bearer live-token"))
+                .andRespond(withSuccess("{\"positions\":{\"position\":[]}}",
+                        org.springframework.http.MediaType.APPLICATION_JSON));
+
+        assertEquals(0, client.accountPositions("LIVE").path("positions").path("position").size());
+        server.verify();
+    }
+
+    @Test
     void looksUpSymbolsForIncrementalQueries() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();

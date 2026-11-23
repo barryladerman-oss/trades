@@ -7,11 +7,16 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestControllerAdvice
 public class TradeExceptionHandler {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TradeExceptionHandler.class);
+
     @ExceptionHandler(IllegalArgumentException.class)
     ProblemDetail invalidTrade(IllegalArgumentException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
@@ -35,8 +40,18 @@ public class TradeExceptionHandler {
 
     @ExceptionHandler(RestClientException.class)
     ProblemDetail brokerUnavailable(RestClientException exception) {
+        if (exception instanceof RestClientResponseException responseException) {
+            int status = responseException.getStatusCode().value();
+            LOGGER.warn("Tradier returned HTTP {} ({})", status, responseException.getStatusText());
+            String detail = "Tradier returned HTTP " + status + " (" + responseException.getStatusText() + ").";
+            if (status == HttpStatus.UNAUTHORIZED.value() || status == HttpStatus.FORBIDDEN.value()) {
+                detail += " Check the credentials and account access for the selected environment.";
+            }
+            return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY, detail);
+        }
+        LOGGER.warn("Could not connect to Tradier: {}", exception.getClass().getSimpleName());
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY,
-                "Tradier request failed. Check the Tradier connection, environment and credentials, then preview again.");
+                "Could not connect to Tradier. Check the connection and try again.");
     }
 
     @ExceptionHandler(TradierRequestException.class)
